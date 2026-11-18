@@ -1,0 +1,369 @@
+/* DRAFT ROOM 추천 엔진 (웹 페이지와 iOS 앱 Brawl Assistant 가 함께 쓰는 단일 소스)
+   - 브라우저: index.html 이 <script src> 로 불러온 뒤 같은 전역 함수를 그대로 호출한다.
+   - iOS: JavaScriptCore 로 이 파일을 평가한 뒤 하단의 호스트 API(DraftEngine)를 호출한다.
+   DOM·네트워크·저장소에 접근하지 않는다. 계산식·가중치를 바꿀 때는 tests/engine-regression 을 다시 돌린다. */
+/* ===================== 브롤러 프로필 =====================
+ r 사거리(1-5) hp 체력 d 지속딜 b 순간딜 m 기동 c 군중제어(0-3) w 벽파괴(0-2) t 투척(벽너머) h 회복/버프 k 메타파워 p 포지션
+ p: F=프론트 탱커, A=암살/다이브, M=미드 컨트롤/딜러, B=백라인 저격, T=투척, S=서포트 */
+const P = `Shelly 2 3 3 4 2 1 1 0 0 3 M|Colt 4 2 4 3 1 0 1 0 0 2 B|Bull 1 5 3 5 3 0 1 0 0 3 F|Brock 5 1 3 3 2 0 1 0 0 2 B|Rico 4 2 4 3 1 0 0 0 0 3 B|Spike 3 2 4 3 1 2 0 0 1 3 M|Barley 4 1 3 2 1 0 0 1 0 3 T|Jessie 4 2 3 2 1 1 0 0 0 2 M|Nita 3 3 3 3 1 1 0 0 0 2 M|Dynamike 4 1 3 5 2 1 1 1 0 3 T|El Primo 1 5 3 3 4 2 1 0 0 2 F|Mortis 1 2 3 3 5 0 0 0 1 3 A|Crow 3 1 3 2 4 1 0 0 0 3 A|Poco 3 3 2 1 1 0 0 0 3 2 S|Bo 4 2 3 3 1 2 0 0 0 3 M|Piper 5 1 3 5 2 1 0 0 0 4 B|Pam 3 4 3 2 1 0 0 0 3 3 S|Tara 3 2 3 3 2 3 0 0 0 3 M|Darryl 1 4 3 5 4 1 0 0 0 3 F|Penny 4 2 3 2 1 0 0 1 0 2 T|Frank 2 5 3 4 1 3 1 0 0 3 F|Gene 4 2 2 2 1 3 0 0 1 3 M|Tick 5 1 3 3 1 1 0 1 0 3 T|Leon 3 2 3 4 4 0 0 0 0 3 A|Rosa 1 5 3 2 2 0 0 0 0 3 F|Carl 3 3 3 3 3 1 1 0 0 2 M|Bibi 1 4 3 3 3 2 0 0 0 3 F|8-Bit 5 4 4 2 1 0 0 0 0 3 B|Sandy 3 3 3 2 2 2 0 0 1 3 M|Bea 5 1 3 4 1 1 0 0 0 3 B|Emz 3 3 4 2 1 2 0 0 0 3 M|Mr. P 4 2 2 2 1 0 0 1 0 2 M|Max 4 2 3 2 5 0 0 0 0 4 S|Jacky 1 4 3 3 2 2 1 0 0 2 F|Gale 4 3 2 2 1 3 0 0 0 3 M|Nani 5 1 2 5 2 0 0 0 0 2 B|Sprout 4 2 2 2 1 2 0 1 0 3 T|Surge 3 3 3 3 3 1 0 0 0 3 M|Colette 3 3 3 4 2 0 0 0 0 3 M|Amber 4 2 5 2 1 1 0 0 0 3 M|Lou 4 2 3 2 1 3 0 0 0 3 M|Byron 5 1 2 2 1 0 0 0 3 4 S|Edgar 1 3 3 4 4 0 0 0 1 3 A|Ruffs 4 2 3 2 1 1 0 0 1 3 S|Stu 3 2 3 3 5 1 0 0 0 3 A|Belle 5 2 3 3 1 1 0 0 0 4 B|Squeak 4 2 3 3 1 1 0 1 0 3 M|Grom 5 1 3 3 1 0 1 1 0 3 T|Buzz 2 4 3 3 4 3 0 0 0 3 A|Griff 3 3 4 4 1 0 0 0 0 2 M|Ash 2 5 4 2 2 0 0 0 0 2 F|Meg 4 5 4 2 1 0 0 0 0 3 F|Lola 4 2 4 2 1 0 0 0 0 2 M|Fang 2 3 3 4 5 1 0 0 0 3 A|Eve 4 2 3 2 2 0 0 1 0 2 M|Janet 4 2 3 3 4 0 0 0 0 3 B|Bonnie 4 3 3 4 4 1 0 0 0 3 B|Otis 4 2 3 2 1 3 0 0 0 3 M|Sam 2 4 3 4 4 1 0 0 0 2 A|Gus 4 2 3 2 1 1 0 0 2 4 S|Buster 2 4 3 2 2 1 0 0 0 3 F|Chester 3 2 3 4 2 1 0 0 0 3 M|Gray 4 2 3 2 1 1 0 0 0 3 S|Mandy 5 2 3 4 1 0 0 0 0 3 B|R-T 4 3 3 3 2 1 0 0 0 3 M|Willow 4 2 3 2 1 3 0 1 0 3 T|Maisie 5 2 3 4 2 1 0 0 0 3 B|Hank 2 5 3 5 2 1 0 0 0 2 F|Cordelius 2 3 3 4 4 2 0 0 0 3 A|Doug 2 4 2 2 2 0 0 0 3 3 S|Pearl 4 3 4 4 1 0 1 0 0 3 M|Chuck 4 2 4 3 4 1 1 0 0 3 M|Charlie 4 3 3 2 1 3 0 0 0 3 M|Mico 3 2 3 3 5 0 0 0 0 3 A|Kit 3 2 2 2 3 1 0 0 2 3 S|Larry & Lawrie 5 2 3 2 1 0 0 1 0 3 T|Melodie 2 3 4 4 5 0 0 0 0 4 A|Angelo 5 1 3 3 2 0 0 0 1 3 B|Draco 2 5 4 3 2 0 0 0 0 3 F|Lily 2 3 3 5 5 1 0 0 0 4 A|Berry 3 3 2 2 2 0 0 0 3 3 S|Clancy 4 3 4 3 1 0 0 0 0 3 M|Moe 4 3 3 3 3 0 1 0 0 3 M|Kenji 2 3 4 4 5 0 0 0 1 4 A|Shade 2 3 3 4 5 0 0 0 0 3 A|Juju 4 2 3 3 2 1 0 1 0 4 T|Buzz Lightyear 4 3 3 3 3 1 0 0 0 3 M|Meeple 4 2 3 2 2 2 0 1 0 3 M|Ollie 2 5 3 3 3 2 0 0 0 4 F|Lumi 4 2 4 3 1 1 0 0 0 3 M|Finx 4 2 3 3 2 2 0 0 0 3 M|Jae-Yong 3 3 3 2 2 0 0 0 2 3 S|Kaze 2 3 4 4 5 1 0 0 0 4 A|Alli 1 3 3 4 5 0 0 0 0 3 A|Trunk 2 5 3 3 3 1 0 0 0 3 F|Mina 3 3 4 3 4 1 0 0 0 4 A|Ziggy 4 2 3 3 1 2 0 1 0 3 M|Pierce 5 2 3 4 1 1 0 0 0 3 B|Gigi 2 2 3 3 5 0 0 0 1 3 A|Glowy 3 3 2 2 2 0 0 0 3 3 S|Sirius 3 3 4 3 2 2 0 0 0 5 M|Najia 4 2 3 2 2 1 0 0 0 3 M|Damian 1 5 3 4 3 2 1 0 0 3 F|Starr Nova 2 4 3 4 3 0 0 0 2 3 A|Bolt 1 4 3 3 5 1 1 0 0 3 F|Nori 2 3 3 3 4 2 0 0 1 3 A|Wendy 4 2 2 2 2 2 0 0 2 3 S|Cosmo 4 2 3 2 1 3 0 0 0 3 M|Vince 4 2 3 2 1 0 0 1 0 3 M`;
+const PROF = {};
+P.split('|').forEach(s=>{const a=s.trim().split(' ');const v=a.splice(-11);PROF[a.join(' ')]={r:+v[0],hp:+v[1],d:+v[2],b:+v[3],m:+v[4],c:+v[5],w:+v[6],t:+v[7],h:+v[8],k:+v[9],p:v[10]}});
+const CLASS_BASE={Tank:'2 5 3 3 2 1 0 0 0 3 F',Assassin:'2 3 3 4 5 0 0 0 0 3 A',Marksman:'5 2 3 4 1 0 0 0 0 3 B',Artillery:'4 2 3 3 1 0 0 1 0 3 T',Controller:'4 2 3 2 1 2 0 0 0 3 M',Support:'3 3 2 2 2 0 0 0 2 3 S','Damage Dealer':'3 3 4 3 2 0 0 0 0 3 M'};
+const TAGS={antiTank:['Shelly','Colette','Spike','Cordelius','Hank','Bull','Darryl','Clancy','Lily','R-T','Mina'],antiHeal:['Crow','Wendy','Lily'],bushCheck:['Bo','Tara','Squeak','Spike','Sandy','Cosmo','Emz','Gene','Charlie','Otis','Barley'],zone:['Emz','Sandy','Spike','Bo','Squeak','Amber','Barley','Sprout','Tara','Gale','Pam','Juju','Najia','Willow'],invis:['Leon','Sandy','Gigi','Kit','Shade'],pull:['Gene','Tara','Charlie','Sirius','Cosmo']};
+const KO={Shelly:'쉘리',Colt:'콜트',Bull:'불',Brock:'브록',Rico:'리코',Spike:'스파이크',Barley:'발리',Jessie:'제시',Nita:'니타',Dynamike:'다이나마이크','El Primo':'엘 프리모',Mortis:'모티스',Crow:'크로우',Poco:'포코',Bo:'보',Piper:'파이퍼',Pam:'팸',Tara:'타라',Darryl:'대릴',Penny:'페니',Frank:'프랭크',Gene:'진',Tick:'틱',Leon:'레온',Rosa:'로사',Carl:'칼',Bibi:'비비','8-Bit':'8비트',Sandy:'샌디',Bea:'비',Emz:'엠즈','Mr. P':'미스터 P',Max:'맥스',Jacky:'재키',Gale:'게일',Nani:'나니',Sprout:'스프라우트',Surge:'서지',Colette:'콜레트',Amber:'앰버',Lou:'루',Byron:'바이런',Edgar:'에드거',Ruffs:'러프스',Stu:'스튜',Belle:'벨',Squeak:'스퀴크',Grom:'그롬',Buzz:'버즈',Griff:'그리프',Ash:'애쉬',Meg:'메그',Lola:'롤라',Fang:'팽',Eve:'이브',Janet:'자넷',Bonnie:'보니',Otis:'오티스',Sam:'샘',Gus:'거스',Buster:'버스터',Chester:'체스터',Gray:'그레이',Mandy:'맨디','R-T':'알티',Willow:'윌로우',Maisie:'메이지',Hank:'행크',Cordelius:'코델리우스',Doug:'더그',Pearl:'펄',Chuck:'척',Charlie:'찰리',Mico:'미코',Kit:'키트','Larry & Lawrie':'래리&로리',Melodie:'멜로디',Angelo:'안젤로',Draco:'드라코',Lily:'릴리',Berry:'베리',Clancy:'클랜시',Moe:'모',Kenji:'켄지',Shade:'셰이드',Juju:'주주','Buzz Lightyear':'버즈 라이트이어',Meeple:'미플',Ollie:'올리',Lumi:'루미',Finx:'핑크스','Jae-Yong':'재용',Kaze:'카제',Alli:'알리',Trunk:'트렁크',Mina:'미나',Ziggy:'지기',Pierce:'피어스',Gigi:'지지',Glowy:'글로위',Sirius:'시리우스',Najia:'나지아',Damian:'데미안','Starr Nova':'스타 노바',Bolt:'볼트',Nori:'노리',Wendy:'웬디',Cosmo:'코스모',Vince:'빈스'};
+/* 한국어 공식 명칭 (출처: psh1234567890/brawl_status_kr 의 게임 텍스트 추출본) */
+const MAP_KO={"Temple Ruins":"사원의 폐허","Stone Fort":"바위 요새","Deathcap Trap":"독버섯 함정","Crystal Clearing":"수정 공터","Snake Prairie":"뱀의 초원","Shooting Star":"별내림 계곡","Outlaw Camp":"무법자 캠프","Hard Rock Mine":"암석 광산","Crystal Arcade":"수정 오락실","Gem Fort":"보석 요새","Undermine":"흔들 광산","Deep Diner":"지하굴 식당","Skull Creek":"해골천","Scorched Stone":"불타는 돌무덤","Rockwall Brawl":"바위 장벽 전투","Feast Or Famine":"모 아니면 도","Bandit Stash":"도적 금고","Kaboom Canyon":"우당탕 협곡","Safe Zone":"안전지대","Team Day":"팀 데이","Hideout":"은신처","G.g. Mortuary":"GG 샵","Backyard Bowl":"뒷마당 월드컵","Triple Dribble":"트리플 드리블","Pinhole Punt":"핀홀 필드","Pachinko Park":"슬롯머신 파크","Double Trouble":"더블 트러블","Steel Junction":"고철 처리장","Chew Out":"울근불근","Sapphire Plains":"사파이어 대지","Acid Lakes":"산성 호수","Cavern Churn":"우당탕 진흙탕","Keep Safe":"금고는 세이프","Chill Space":"조용했던 동네","Echo Chamber":"메아리 동굴","Fancy Fencing":"여기저기 울타리","Island Invasion":"무인도 침략","Forks Out":"포크아웃","Flooded Mine":"침수된 광산","Cactus Corridor":"선인장 지대","Sneaky Fields":"스니키 필드","Super Beach":"슈퍼 해변","Puddle Splash":"물웅덩이 필드","Hot Potato":"뜨거운 감자","Canal Grande":"대운하","Hot Maze":"핫 뜨거 미로","Machine Zone":"머신 존","Snow Fort":"눈사람 요새","Holiday Chill":"겨울 광산","Snowball Fight":"눈 싸움","Ice Block Rock":"얼음 바위 언덕","Snowy Siege":"눈 덮인 갱도","Gift Wrap":"선물 포장","Spruce Up":"눈 단장","Hunting Party":"사냥하기 좋은 날","Table Flip":"엎어진 테이블","Metal Scrap":"고철 조각","Vault Defenders":"금고 보안관","Split Second":"눈 깜짝할 사이","Rolling Rumble":"롤링 럼블","Twist And Shoot":"트위스트 앤 슛","Bridge Too Far":"머나먼 다리","Corner Case":"코너 케이스","Bull Pen":"불펜","Excel":"탁월한 선택","Layer Cake":"레이어 케이크","Dry Season":"햇빛은 쨍쨍","Merch Fort":"아이템 요새","Pool Party":"풀 파티","Dune Drift":"모래 언덕","Stormy Plains":"폭풍의 대지","Bot Drop":"로봇시대","Some Assembly Required":"조립의 조건","Nuts & Bolts":"볼트의 정석","Royal Tribute":"로얄 아레나","Dark Passage":"어두운 통로","Ghost Point":"유령 출몰","Erratic Blocks":"불규칙 블록","River Rush":"쇄도하는 강","Eye Of The Storm":"태풍의 눈","Diamond Dust":"다이아몬드 더스트","Four Squared":"포 스퀘어","Bouncing Diner":"점프 맛집","Escape Velocity":"급속 탈출","Double Swoosh":"이중 곡선","Cell Division":"분열","Spring Trap":"점핑 트랩","Pinball Dreams":"핀볼 드림","Minecart Madness":"광기의 광산 열차","Flying Fantasies":"플라잉 판타지","Royal Runway":"로얄 런웨이","Junk Park":"고물 공원","Sparring Match":"스파링 매치","Straight Shot":"스트레이트 샷","Assembly Attack":"조립 라인","Robo Highway":"로보 하이웨이","Center Stage":"센터 스테이지","Danger Zone":"위험 지대","Curveball":"커브 볼","Superstar":"슈퍼스타","Pit Stop":"피트 스톱","Side Story":"사이드 스토리","Cross Cut":"지름길","Stock Crash":"주식 붕괴","Mecha Match":"로봇 실험실","Factory Rush":"로봇 공장","Beach Ball":"비치볼","Sunny Soccer":"화창한 날","Beachcombers":"한여름 해변","Twisted Gems":"기묘한 보석","Acute Angle":"예리한 각도","Snake Shop":"뱀의 가게","Sunstroke":"일사병","Burning Sands":"불타는 모래 사장","Figure 8":"피규어 8","Deserted Vertex":"황량한 정상","Outrageous Outback":"분노의 황무지","Barren Badlands":"척박한 불모지","Royal Flush":"로얄 플러시","Overgrown Canyon":"우거진 협곡","Field Goal":"필드 골","Post Haste":"곧바로 골대로","Slalom Slam":"장애물 코스","Coarse Course":"거친 경기장","Power Shot":"파워 슛","Critical Crossing":"위험한 교차로","Last Stand":"마지막 저항","Boss Drop":"보스 투하","Frenemies":"친구=적","Bulk Up":"벌크업","Training Montage":"지옥훈련","Maze Mayhem":"대혼란의 미로","Silly Standoff":"교착 상태","Shore Shot":"해안 샷","Not So Safe":"안전하지 않아","Stolen Valor":"도둑맞은 용맹","Cauliflower":"콜리플라워","Close Call":"위기일발","Spinning Solo":"스피닝 솔로","Crossroads":"교차로","Peak Oil":"피크 오일","Cuckoo Coup":"엄청난 성취","Scrap Metal":"재활용 금속","Funky Punk":"펑키 펑크","Clockwork":"시계태엽","Alligator Alley":"악어 거리","Tight Stuff":"깐깐한 시험","Forsaken Falls":"버림받은 폭포","Maze Creep":"미미한 미로","Walk In Walk Out":"들어갈 때는 마음대로","Zip Line":"집라인","Daylight Robbery":"한낮의 대도","Trophy Trespass":"무단 침입","Smugglers":"밀수자들","Twisted Plan":"꼬인 계획","Time Out":"타임 아웃","Swirling Storm":"폭풍우","Excellent Escapade":"위험한 모험","Spare Space":"남은 공간","Shabby Shells":"초라한 껍데기","Secret Surprise":"놀라운 비밀","Green Deck":"녹색 갑판","Bandit Cove":"도둑의 만","Tornado Ring":"돌풍의 고리","Deeper Danger":"더 깊은 위험","Land Ahoy":"육지 발견","Point Of View":"시선의 끝","Circular Canyon":"원형 협곡","Rocky Blocks":"바위 덩어리","Stocky Stockades":"단단한 울타리","Safety Center":"안전 센터","Core Crumble":"중심 붕괴","Treasure Hunt":"보물 사냥","Two Thousand Lakes":"호수 2천국","Bank Shot":"뱅크슛","Playbox":"플레이박스","Penalty Kick":"페널티 킥","Substitute":"교체","Happy Feet":"해피 풋워크","Square Off":"공방 태세","Barrel Vault":"배럴 저장소","Quarter Pounder":"오락실 죽돌이","High Score":"하이스코어","Temple Of Boom":"템플 오브 붐","Breakout Brawl":"벽돌깨기 브롤","Controller Chaos":"컨트롤러 카오스","Golden Hacks":"골든 핵스","Street Brawler 2":"스트리트 브롤러 2","Galaxy Arena":"은하수 경기장","Shoulder Bash":"어깨 싸움","Well Cut":"고품격 아레나","Center Field":"센터 필드","Warped Beach":"요리조리 해변","Thousand Lakes":"호수 천국","Crated Factory":"상자 공장","Fenced In":"울타리","Olive Branch":"올리브 나뭇가지","Heat Wave":"폭염","Cobweb":"거미줄","Traffic Jam":"꽉 막힌 도로","Super City":"슈퍼 시티","Nruhc Nrevac":"탕흙진 탕당우","Riverside Ring":"리버사이드 링","Shadow Spirits":"그림자 영혼","Eggshell":"사상누각","Will Of The Wisp":"도깨비 불","Victor Valley":"승자의 골짜기","Grassy Gorge":"잡초 가득 협곡","Clash Colosseum":"클래시 콜로세움","Massive Attack":"대공격","Control Grande":"웅장한 지배력","Perimeter":"변두리","Open Business":"신장개업","Parallel Plays":"평행선","Split":"틈","No Excuses":"변명 금지","Hop Skip And Jump":"최단거리","Portal Overload":"사방에 포털","Mosh Pit":"격렬한 구덩이","Ring Of Fire":"불의 고리","Quick Skip":"퀵 스킵","Turnaround":"역전","Watch Out":"전방 주의","Sizzling Surprise":"불타는 놀라움","Dueling Beetles":"곤충 싸움","Full On":"맥시멈","Open Season":"오픈 시즌","Lit Match":"불붙은 매치","Rumble In The Jungle":"정글 럼블","Rope-A-Dope":"로프 어 도프","Flooded Dam":"침수된 댐","Sideswipe":"측면 공격","Straight Up Racket":"멈출 수 없어","Easy Money":"쉬운 돈벌이","Side Door":"옆문","Oceans Six":"오션스 6","Roped In":"월척","Bot Riot":"로봇의 반란","Open Plaza":"열린 광장","Encirclement":"빙글빙글","Winter Party":"겨울 파티","Jumping Beans":"점핑 빈","Fast Fork":"급습","Clean Shot":"클린 샷","Boxing Day":"박싱 데이","Rustic Arcade":"오래된 오락실","Red Herring":"교란","Central Traffic":"회전 교차로","Snaked Assault":"뱀의 수풀","Conveyor Clash":"모두 모여라","Triumvirate":"삼국지","Quick Travel":"빠른 이동","Magnetic Field":"자기장","The Galaxy":"은하계","Ends Meet":"하루살이","Middle Ground":"미들 그라운드","Zip Zap":"집잽","Double Bluff":"이중 속임수","Snake Out":"스네이크 아웃","Split Difference":"완충 지대","Goldarm Gulch":"골드암 협곡","Belles Rock":"벨스 락","Crimewater":"외나무 다리","Hot Pursuit":"화끈한 추격","Medal Madness":"광란의 메달","Prized Possession":"애장품","Elevator Pitch":"위아래위아래","In The Mix":"옆자리 적","Racing Trophy":"레이스 트로피","Cornered":"사면초가","Tiger Leap":"타이거 점프","Block Party":"블로킹 파티","Power Alley":"파워 앨리","Strong Side":"스트롱 사이드","Pancake":"팬케이크","Jungle Ball":"정글 볼","Floater":"플로터","Ball Hog":"볼 호그","Reversal":"속공","Pocket Pass":"포켓 패스","Turnover":"역전","Alley Oop":"앨리웁","Slam Dunk":"슬램 덩크","Triple-Double":"트리플 더블","Dark Fantasies":"다크 판타지","Risky Cliffs":"위험한 절벽","Ignition":"점화","Mystic Touch":"신비의 손길","Trap Map":"함정 맵","Stardust Storm":"스타더스트 스톰","Cotton Candy Dreams":"솜사탕의 꿈","Twisted Torpedo":"빙글빙글 어뢰","Gem Bash":"보석 강타","Molasses":"사암","Side Strike":"측면 습격","Wavedash":"웨이브 대시","Retina":"레티나","Turtle Shell":"거북 껍질","Sticky Notes":"포스트잇","Cover Crowd":"군중 속으로","Bandit Hook":"도둑의 갈고리","Spring Onions":"스프링 어니언","Time Warp":"타임 워프","Iron Cables":"강철 케이블","Sabotage Strip":"방해 공작","Storm Attack":"폭풍 공격","Flanking Maneuver":"교란책","Power Washer":"파워 워셔","Rust Belt":"러스트 벨트","Splash Out":"스플래시 아웃","Deep End":"딥 엔드","Dried Up River":"바짝 마른 강","Canyon Rivers":"협곡의 강","Luis Revenge":"루이스의 복수","Flaring Phoenix":"타오르는 불사조","Diagonal Alley":"대각선 골목","Rattlesnake Ravine":"방울뱀 협곡","Electric Zone":"일렉트릭 존","Cube Force":"큐브 포스","Robo Ring":"로봇 링","Bric-A-Brac":"골동품","Night At The Museum":"나이트 뮤지엄","Firm Grip":"높은 점유율","Binary Coding":"이진 코드","Pierced":"천공","Gem Source":"보석의 원천","No Surrender":"항복 없는 결투의 장","Shrouding Serpent":"뒤덮는 뱀","Block And Counter":"치고 빠지기","Warriors Way":"전사의 길","Duelists Destiny":"결투사의 운명","Meadow Of The Crane":"두루미의 초원","Ninja Checkmate":"닌자 체크메이트","Rigid Ravines":"거친 협곡","Monkey Maze":"원숭이 미로","Tiger Trap":"호랑이 덫","Danger Chamber":"위험한 결투의 장","Infinite Doom":"인피니트 둠","Camping Grounds":"캠핑장","Friendly Fire Off":"팀킬 금지","Translocator Exchange":"수송체 교환","Slayers Paradise":"파괴의 천국","Wicked Twig":"비비 꼬인 나뭇가지","Quad Damage":"4중 피해","Training Island":"훈련 섬","Drawback":"후퇴","Backhaul":"역수송","Force Majeure":"불가항력","Air Waybill":"항공 운송장","Cubic Capacity":"화물 용량","Concealed Damage":"은폐 피해","Special Delivery":"특별 배송","Open Space":"열린 공간","Off The Line":"오프사이드","Riverside":"리버사이드","Flowing Springs":"흐르는 샘","Double-Sided":"양면성","Hairdryer Treatment":"영혼 탈곡기","Gem Exchange":"보석 교환","Opposing Forts":"반대편 요새","The Mortuary":"공동묘지","Devolution":"권력 이양","Divided":"분열","Val Verde":"발베르데","Quadrants":"사분면","Brawl Of The Worlds":"세계의 브롤","Killzone":"킬존","Bullseye":"불스아이","Peekaboo":"피카부","Bots Attack":"로봇의 공격!","Linear Blocks":"선형 블록","Corridors":"복도","Departure":"출국장","Forts":"요새","The Bot":"봇","A Loud Place":"시끌벅적","Open Zone":"오픈 존","New Perspective":"새로운 시각","X Marks The Spot":"X 표식","Cant Touch This":"범접 불가","Extra Bouncy":"추가 탄성","Full Tilt":"완전한 경사","Ping Pong":"핑퐁","Jump Park":"점프 파크","Brawler Speedway":"브롤러 스피드웨이","Teleport Tag":"텔레포트 태그","Trials And Tribulations":"고난과 역경","Hunting Season":"사냥의 계절","The Prey":"먹잇감","Quick And Restless":"빠르고 신속하게","Deliverance":"구출","True Trail":"선명한 자취","Omega":"오메가","Double Jeopardy":"이중 위험","Make It Bounce":"바운스 바운스","Hidden Enemy":"숨어 있는 적","Out In The Open":"오픈 필드","River Banks":"강둑","Treefecta":"트리플 포인트","Glass Half Full":"낙관주의자","Duality":"이중성","Dont Turn Around":"돌아보지 마","Side By Side":"나란히 나란히","Trident":"삼지창","Imbalance":"불균형","Boxed In":"옴짝달싹","Zoomed Out":"줌 아웃","The Eliminator":"일리미네이터","Punishment Day":"처벌의 날","Rise Of The Robots":"로봇의 진격","Salvation":"구원","Fried Circuits":"타버린 회로","Dark Destiny":"암흑의 운명","Juhas Test Chamber":"Juha의 실험실","Hamiltons End":"비극적 결말","Black River":"블랙 리버","Petticoat Duel":"속치마 결투","Swallow Cut":"속전속결","Gladiators":"글래디에이터","Hotheaded":"다혈질","Four Doors":"네 개의 문","Nowhere To Hide":"갈팡질팡","Offset Heist":"오프셋 하이스트","Rush Hour":"러시아워","Healthy Middle Ground":"적당한 중간지점","Lush Poles":"기둥투성이","Solid Center":"든든한 센터","Iron Standoff":"강철 교착","Center Control":"센터 컨트롤","Iron Cover":"강철 뚜껑","Step By Step":"차근차근","Hard Limits":"굳은 심지","Circular Motion":"빙글빙글","Iron Corridor":"강철 통로","Mogura Tataki":"두더지 잡기","Four Lakes":"네 개의 호수","Grim Island":"그림 섬","Iron Core":"철심","Green Meadows":"푸른 목장","Pick And Roll":"픽앤롤","Basket Fort":"바스켓 요새","Dancing Roof":"댄스 배틀","Isolation Play":"고립 작전","Victory Road":"빅토리 로드","Smash Land":"스매시 랜드","Quick Attack":"퀵 어택","Death Loop":"죽음의 고리","Eyes On The Ground":"땅에 시선 고정","Cheeky Chokepoint":"까다로운 관문","Devils Pass":"악마의 길","Battered Battlefield":"속수무책의 전장","Midlands":"미들랜드","Transfer Of Troubles":"트러블 트랜스퍼","Lakeside Lappin":"호숫가 레이스","Iron Center":"아이언 센터","Highly Trafficated":"교통 체증","Backhaul Updated":"역수송 v.2","Shiver Me Timbers":"등골이 오싹","Walk The Plank":"멘탈 강화","Davy Jones Locker":"데비 존스의 보관함","Blimey":"어이쿠!","Fractions":"분수","Roundabout":"로터리","Ring Of Death":"죽음의 고리","Poison Fields":"포이즌 필드","Layer Bake":"레이어 베이크","Stepping Stones":"디딤돌","Last Stop":"종점","Freezing Ripples":"얼어붙은 물결","Great Waves":"성난 파도","Cool Shapes":"쿨 셰이프","Arctic Extraction":"북극 추출","Snowman Forest":"눈사람 숲","Cold Pond Quarry":"추운 연못 채석장","Snowflakes":"눈송이","Slippery Road":"미끌미끌 도로","Icy Ice Park":"아이스 파크","Frosty Tracks":"서리 내린 트랙","Stacking":"보석 쌓기","Warehouse":"창고","On The Train":"열차를 타고","Over The Top":"무리수","Iron Bars":"철봉","Deadly Deflections":"치명적인 반사","Waters Of Doom":"운명의 물기슭","Into Infinity":"무한의 영역으로","Hungry Hippos":"다 먹는 하마","Sultans Of Swing":"스윙의 황제들","Vicious Vortex":"사나운 소용돌이","Descending Dimensions":"차원을 거슬러","Crossing":"교차로","Side Jump":"사이드 점프","Strange":"기묘한 대결","Rush":"헐레벌떡","Riverbed":"강바닥","Stay In Your Lane":"경로 이탈 주의","Close Quarters":"근접전","The Great Divide":"대분수령","Checkered":"파란만장","The Great Open":"그레이트 오픈","Breakwater Port":"방파제 항구","Bounce Bazaar":"바운스 바자","Circling Sands":"빙글빙글 모래 사장","Sizzling Chambers":"불타는 체임버","Marksmans Paradise":"저격수의 파라다이스","New Horizons":"새로운 지평선","Goalkeepers Dream":"골키퍼의 꿈","Desert Tendrils":"사막 덩굴손","Suspenders":"서스펜더","Riverbank Crossing":"강둑 교차로","Gemming Channels":"보석 수로","Downtown Destruction":"다운타운 파괴","Hardihood Hideaway":"고난의 은신처","Crispy Crypt":"서늘한 지하실","Capital Chaos":"혼돈의 수도","Boom Town Bust":"붐 타운 버스트","Fiftyfive":"오십오","Between The Rivers":"강과 강 사이","Four Levels":"네 개의 레벨","Burning Flares":"타오르는 불꽃","Color Me Intrigued":"흥미로운 컬러","Highway Havoc":"하이웨이 대혼란","Shuffle City":"셔플 시티","Rusty Rebound":"녹슨 반동","Spring Back Alley":"봄의 뒷골목","Touch Up Tavern":"도장된 선술집","Paperback Pond":"종이 연못","Greasepaint Grass":"분장용 페인트 잔디","Dye Direct":"직접염료","Chromatic Cress":"크로마틱 풀숲","Spots Of Yore":"과거의 흔적","Tint Terrace":"틴트 테라스","Flank Attack":"측면 공격","Iris Intervention":"시야 간섭","Spider Crawler":"기어다니는 거미","Offside Trap":"오프사이드 트랩","Sneaky Sneak":"살금살금","Ahead Of The Curve":"앞지르기","Diamond Dome":"다이아몬드 돔","Double Locking":"이중 잠금","Reflections":"반향","Local Businesses":"로컬 비즈니스","Dragon Jaws":"용의 턱","Twilight Passage":"황혼의 통로","Hard Lane":"강경 노선","Island Hopping":"호핑투어","Leaping Frogs":"개구리의 도약","Final Four":"최후의 사인방","Spice Production":"향신료 제작","Coconut Cove":"코코넛 만","Burger Bay":"버거 베이","Thousand Jellies":"해파리 천지","Ring O Brawlin":"브롤의 고리","Starr Fish":"스타피시","Splashing Rivers":"첨벙첨벙 강물","Squad Out":"스쿼드 아웃","Rubbish Rampage":"쓰레기 폭동","Trash Bash":"쓰레기 파티","Dumpster Drive":"쓰레기차 드라이브","Waste Haven":"쓰레기 집합소","In The Bins":"쓰레기통","Garbage Yard":"쓰레기장","Litterbug Lane":"쓰레기 소각장","Back Pocket":"뒷주머니","Give And Take":"기브 앤 테이크","Bear Trap":"곰 덫","Crowd Strike":"군중 시위","Misty Meadows":"안개 낀 목장","Secret Or Mystery":"비밀 혹은 미스터리","Sunset Vista":"해질녘의 풍경","Sunset Spar":"해질녘의 대결","Foursquare Fortress":"네모 요새","Broiler Room":"보일러실","Hoop Boot Hill":"언덕을 넘어","Kooky Gates":"어리둥절 게이트","Afterpiece Arena":"에필로그 아레나","Divine Descent":"신성한 강림","Hellish Harvest":"끔찍한 사냥","Final Frontier":"최후의 경계","Infernal Invasion":"지옥의 침략","Celestial Crusade":"천상의 투쟁","Abyssal Assault":"심해 전쟁","Radiant Rampage":"찬란한 폭동","Underworld Uprising":"저승의 반란","Zen Garden":"실내 정원","Swimming Skills":"수영 실력","Tangled Shrubs":"얼키설키 덤불","Breaks":"휴식 시간","Pillars Of Doom":"파멸의 기둥","Mantis Claw":"사마귀 앞다리","Line Of Defense":"방어선","Too Cool For Summer":"선선한 여름날","From Dusk Till Dawn":"황혼부터 새벽까지","Pineapple Plaza":"파인애플 광장","Corkscrew":"코르크 따개","Gratitude":"감사의 표시","Weak Foot":"한발잡이","Razzle Dazzle":"와글와글","Electric Storm":"전기 폭풍","Super Center":"슈퍼 센터","Slippery Slap":"미끌미끌 슬랩","Bouncy Bowl":"통통볼","Below Zero":"영하","Cool Box":"쿨 박스","Starr Garden":"스타 정원","Corridor Creeper":"덩굴 통로","Cooperative Chaos":"협동 카오스","Buddy Brawl":"버디 브롤","Double Dribble":"더블 드리블","Lines Of Play":"포지션 플레이","Protected Pools":"보호구역","Double Play Palace":"더블 플레이 팰리스","Grassy Grave":"잡초 가득 무덤","Lane Of Duty":"임무의 전장","Basket Case":"바스켓 케이스","Dorky Dunkin":"어설픈 덩크슛","Partner Panic":"파트너 패닉","Pair Plaza":"짝꿍 광장","Tango":"탱고","Penny Drop":"페니 드롭","Field Frenzy":"요지경 필드","Checkpoint Chase":"체크포인트 체이스","River Race":"리버 레이스","Instant Delivery":"퀵 배송","Triple Cheese":"트리플 치즈","Dough Or Die":"도우는 곧 생명","Watersport":"수상스포츠","Noisy Neighbors":"층간소음","Forest Clearing":"숲속 공터","The Cooler Hard Rock":"멋진 암석","H For...":"핫 뜨거워","Two Rivers":"두 개의 강","Second Try":"두 번째 시도","Trickey":"까다로운 도전","Safe(r) Zone":"안전(?)지대","The Great Lake":"대호수","Blocky Blockade":"원천 봉쇄","Ravens Pass":"까마귀 고개","Ball Stars":"볼스타즈","Pitch Perfect":"완벽한 슈팅","Joystick Jungle":"조이스틱 정글","Mirror Point":"미러 포인트","Buzzer Beater":"버저 비터","Off The Charts":"어나더 레벨","Deep Forest":"깊은 숲","Tiny Islands":"아기자기 섬","Temple Of Vroom":"부릉부릉 사원","Overgrown Ruins":"우거진 폐허","Gg 2.0":"GG 2.0","We Messed Up":"얼렁뚱땅","Puck Palace":"퍽 팰리스","Duo Dash":"듀오 대시","Slapshot Stadium":"슬랩샷 스타디움","Air Sports Arena":"에어 스포츠 아레나","Right On Time":"퍼펙트 타이밍","Puck Man":"퍽 맨","Wild Greens":"와일드 그린","Polar Park":"북극 파크","Hidden In Plain Sight":"등하불명","Reverse Crossing":"리버스 교차로","Skipyard":"스킵 한마당","Middle Management":"중간 관리자","Treasure Marks The Spot":"보물 표식","Ancient Treasure":"고대의 보물","Excellent Excavations":"위대한 발굴","Can You Dig It":"발굴 준비","Stockpile Stadium":"비축 스타디움","Big Battle Basin":"대형 전투 분지","Unhappy Arena":"불행의 아레나","Brawl Starrgate":"브롤 스타게이트","Snowcone Square":"스노우콘 광장","Bejeweled":"블링블링","Fishing Bed":"황금어장","Priceless Cactus":"귀중한 선인장","Rooftop Runners":"옥상 위의 질주","Mossy Crossing":"이끼 낀 교차로","Lilygear Lake":"릴리기어 호수","Local Restaurants":"로컬 맛집","Plain Text":"서식 없음","Hurricane":"허리케인","Brace For Impact":"충격 대비","Covered Garden":"안락한 정원","Siberian Stand Off":"시베리아에서의 대결","Survival Of The Meanest":"혹독한 서바이벌","Mirages Of Madness":"광기의 신기루","Courtyard Clashers":"마당의 전사들","Shimmering Forest":"반짝이는 숲","Arctic Ambush":"북극의 매복","Treasure Island":"보물섬","Mystical Thirty Three":"신비로운 33","Waveform":"파동","Core Of Orbit":"궤도의 핵심","Lilypond Grove":"우거진 연못","Kaiju Lake":"괴수 호수","Arena Of Glory":"영광의 아레나","Mirage Arena":"신기루 아레나","Maki Market":"김초밥 시장","Sashimi Shores":"생선회 해안","Wasabi In The Eyes":"내 눈에 고추냉이","Isle Of Grain":"곡물의 섬","Dragonroll Reef":"드래곤롤 암초","Wasabi Fortress":"고추냉이 요새","Mount Sushimura":"초밥마을 산","Battlebento Basin":"전투 도시락 분지","Steamrise Island":"증기 섬","Tempura Valley":"튀김 계곡","Fishblade Village":"회칼 마을","Crystal Eye Castle":"수정 눈의 성","Seeker":"시커","Double Decker":"더블 데커","Streets With No Name":"이름 없는 거리","Grass Knot":"풀 매듭","Spiraling Out":"스파이럴 아웃","Abracadabra":"아브라카다브라","In The Liminal":"경계 속으로","Subway Turfers":"서브웨이 터퍼","Ghoulish Lagoon":"섬뜩한 산호초","On A Roll":"승승장구","Storage Sector":"저장 구역","Soy Sauce Stains":"간장 얼룩","Moonbark Meadow":"달빛 초원","Case Of The Mondays":"월요병","Jump To Conclusions":"성급한 결론","Rebound Ring":"리바운드 링","Hug Or Hurl":"안거나 던지거나","Massive Meltdown":"거대한 멜트다운","Frostbite Rink":"동상 링크장","Thin Walls":"얇은 장벽","Paper Jam":"페이퍼 잼","Side Hustle":"사이드 허슬","Squish Court":"말캉말캉 코트","Wispwillow Ward":"위스프윌로우 구","Cold Snap":"차가운 스냅","Toot Town":"칙칙폭폭 마을","Insane Streamer":"크레이지 스트리머","Pocket Pleasures":"주머니 속 기쁨","Cobblestone Swamp":"조약돌 늪","Public Transport":"대중교통","Brawlerverse":"브롤러버스","The Emptiness Machine":"공허한 기계","Hee Hee":"히히","Island Of Finality":"최후의 섬","Whisper Vale":"속삭이는 계곡","Extreme Nonchalance":"극도의 무관심","Sidetrack":"샛길","Match 1123581321":"매치 1123581321","Twentyfive To Two":"1시 35분","Time Flies":"쏜살같은 시간","Playmaker":"플레이메이커","Think Ahead":"미리 준비","Call Of The Water":"물의 부름","Coin Flip":"코인 던지기","Search And Destroy":"수색 및 파괴","Zip Zap Zoom":"집 잽 줌","Corner Cave":"구석진 동굴","Knockout Grounds":"녹아웃 그라운드","The Smackdome":"스맥돔","Battle Bowl":"배틀 볼","Starrburst":"스타버스트","Million Dollars":"백만 달러","Metro Mayhem":"혼란의 메트로","Backtrack Attack":"백트랙 어택","Loopy Line":"꼬불꼬불 노선","Trainbow Road":"무지개 로드","Choo Choo Showdown":"칙칙폭폭 쇼다운","Insert Victory":"승리 투입","Invaded Space":"우주 침략","1-2-3 Play":"1-2-3 플레이","Prize Pushing":"상품 몰아주기","Gargoyle Rt":"괴물 석상 R-T","Ghost Diver Rico":"고스트 잠수부 리코","Plague Doctor Crow":"역병 의사 크로우","Headless Tickman":"머리 없는 틱맨","Carreta Spike":"삐걱삐걱 스파이크","Kizu Kenji":"원혼 켄지","Crazy For Credits":"크레딧 마니아","T-Rail Rush":"T 레일 러시","Dodge Or Die":"닷지 오어 다이","Truth":"진실","Twisting Vines":"비틀린 덩굴","Atlas":"아틀라스","Afterparty":"뒤풀이 파티","Just Another Race To Anywhere":"또 다른 경주","Back Shuffle":"백 셔플","Flute Chutes":"좁고 긴 통로","Grab The Moment":"순간의 포착","Party For You":"날 위한 파티","A Ballad About Minced Cutlets":"커틀릿 발라드","The Great Mighty Lou":"매우 강력한 루","All Things Wicked":"모든 악한 것","Photic Doom":"빛의 돔","Serpentshrine Island":"세르펜슈린 섬","Crescendo":"크레센도","Journey Of A Thousand Steps":"수천 걸음의 여정","Catacombs":"카타콤","Deathmatch":"데스매치","Pound Of Mass":"질량의 무게","Wonderland":"원더랜드","Slay Bay":"슬레이 베이","Overpower Outpost":"압도적인 전초기지","Nippy Narrows":"쌀쌀한 좁은 수로","Spirit Frank":"유령 프랭크","Demogorgon":"데모고르곤","Vecna":"베크나","Kroket":"크로켓","Lotus":"로투스","Gated Community":"출입 통제 커뮤니티","Makeshift Scaffolding":"임시 발판","Railroad Robbery":"철로 대도","Trainhaven":"기차의 안식처","Zone Splitting":"존 스플릿","Ticket To Die":"저세상행 표","Chivalry":"기사도","Polar Payoff":"북극 페이오프","Mine All Mine":"몽땅 내 거","Treasure Pressure":"보물의 압박감","Art Team Hangout":"아트 팀 행아웃","Cold Cash":"수중에 현금","Permafrost Bayou":"영구 동토층 늪","Lovers Lane":"사랑의 라인","Caged Hearts":"갇힌 심장","Mega Love Potion Squeak":"메가 러브 포션 스퀴크","Mega Bear Shade":"메가 베어 셰이드","Mega Brawlentines Angelo":"메가 브롤렌타인 안젤로","Mega Heartbroken Rico":"메가 상심 리코","Kiss Kaboom":"키스 폭발","Fuseyard":"도화선 구역","Gunpowder Gangway":"폭약 통로","Crush & Burn":"크러시 앤 번","Safe Bet":"안전한 선택","Fast Blast Alley":"급속 폭발 거리","Violent Withdrawal":"무자비한 출금","Rastermind":"래스터마인드","Walking On Hot Sand":"뜨거운 모래","Too Gimmicky 2":"지능적 술책 2","Tax Evasion":"탈세","The Seven Pillars Of Humanity":"인류의 일곱 기둥","Singed Earth":"그을린 세상","Nutmeg":"알 까기","Aridity":"무미건조","Quintillion":"100경","Snake Pit":"뱀 구덩이","Fortress Fall":"요새 붕괴","Konnakol":"콘나콜","Paralysis Pen":"마비 펜","Wall Hugging":"벽 끌어안기","Choral Chambers":"합창단원실","H Is For Holiday":"홀리데이의 H","Hyperspace":"하이퍼스페이스","Pinned Down":"옴짝달싹","North Park Station":"노스 파크 스테이션","Boss Dragon Maisie":"보스 드래곤 메이지","Boss Bruce Nita":"보스 브루스 니타","Boss Dragrom":"보스 드래그롬","Boss Dragon Griff":"보스 드래곤 그리프","Boss Crow":"보스 크로우","Moonveil Mansion":"문베일 맨션","Silver Shadow Circus":"실버 섀도우 서커스","Illusion Alley":"착시 골목","Doppelzone":"도플 존","Train Erasure":"사라진 열차","Less Is More":"과유불급","Side Quests":"사이드 퀘스트","Huddle Puddle":"웅덩이 허들","Hello Always Ends With A Goodbye":"회자정리","Palette Hangout":"팔레트 행아웃","Golden Bay":"골든 베이","Hyacinth House":"히아신스 하우스","Goalies":"골키퍼들","No Good Deed":"선행의 대가","Tuning Fork":"소리굽쇠","Perpetual Motion":"영구 운동","Picturesque":"생생한 광경","Satomi Springs":"사토미 스프링스","Opening Move":"오프닝 무브","Crab Claws":"집게","Jumpscare Lair":"깜짝 소굴","Molten To The Core":"용암의 중심부","Starfruit Supernova":"스타프루트 슈퍼노바","Watermelons":"워터멜론","Hit And Run":"히트 앤 런","Tip Toe":"팁 토","Cabin Fever":"캐빈 피버","Web Of Shadows":"그림자의 거미줄","The Big Top":"빅 탑","Imposter Pathway":"임포스터 거리","Copycat Carnival":"따라쟁이 카니발","Keepers Corner":"골키퍼 코너","Backnet Bonanza":"골망 대잔치","Goalmouth Scramble":"골문 앞 와글와글","Fox In The Box":"골대 앞 여우","Void Master Finx":"공허 마스터 핑크스","Void Colette":"공허 콜레트","Penalty Park":"페널티 파크","Kickoff Coliseum":"킥오프 콜로세움","Midfield Madness":"미드필드 매드니스","Crimson Divide":"크림슨 디바이드","Silver Highlands":"실버 하이랜드","Impossible Arena":"임파서블 아레나","Attrition":"소모전","Eating Good":"포식 중!","Ancestral Roots":"선조의 뿌리","Please Remain Standing":"끝까지 버티기","Slippery Showdown":"미끌미끌 쇼다운","Arabesque":"아라베스크","Woktopia":"웍토피아","Boss Tech Tara":"보스 테크 타라","You Gotta Push It":"압박 전진","Cyberboss Brock":"사이버보스 브록","Cloud Kitchen":"클라우드 키친","Undercooked":"미완성 요리","Mill & Chill":"휴식 공장","Turbine Terrace":"터빈 테라스","Feel The Shock":"충격 감지","Quantum Kitchen":"퀀텀 키친","Nano Nori":"나노 노리","Wok & Roll":"웍 앤 롤","Nullscapes":"공허 지대","Raging Ocean":"사나운 바다","Solitary Deep Sea Fish":"고독한 심해 물고기","Reach For The Stars":"별을 향해","Under Pressure":"압박 상태","Bustling Business":"북적북적","Deadlock":"무한 대기","Hot Tubs":"온수 욕조","Jedna":"제드나","Bottom Two":"하위 듀오","Let Me Dance":"춤사위","Jungle Top":"정글 탑","Leaping Dogs":"점핑 도그","Crossing The Coast":"해안 돌파","Doom Shroom":"파괴의 버섯","Rice Field":"논두렁","Supercut":"슈퍼컷","Tasty Berry":"냠냠 베리","Stir Station":"쿠킹 스테이션","Damage Destructor":"피해 파괴","Seekret Passage":"비밀 통로","Peekproof":"훔쳐보기 방지","Mega Boss Duo":"메가 보스 듀오","Mega Boss Duo (5 Player)":"메가 보스 듀오(5인 플레이어)","Mega Boss Duo (20 Player)":"메가 보스 듀오(20인 플레이어)","Hide Tide":"하이드 타이드","Triple Threat":"트리플 위협","Brawlers Rift":"브롤러 리프트","Barrel Bluff":"배럴 속임수","Diagonal Dribble":"사선 드리블","Corner Kickoff":"코너 킥오프","Hideout Havoc":"은신처 대소동","Tread Carefully":"신중한 발걸음","In Demand":"인기 급증","Pump It Up":"분위기 고조","Dungeon Train":"던전 열차","Stroke Of Luck":"뜻밖의 행운","Stone Skipping":"물수제비","False Sense Of Security":"거짓된 안심","Alchemy":"연금술","Nothing Suspicious":"수상함 제로","Net Presence":"골문 압박"};
+Object.assign(KO,{"Vince":"빈스","Cosmo":"코스모","Wendy":"웬디","Nori":"노리","Bolt":"볼트","Starr Nova":"스타 노바","Damian":"데미안","Najia":"나지아","Sirius":"시리우스","Glowy":"글로이","Gigi":"지지","Pierce":"피어스","Ziggy":"지기","Mina":"미나","Trunk":"트렁크","Alli":"알리","Kaze":"카제","Jae-Yong":"재용","Finx":"핑크스","Lumi":"루미","Ollie":"올리","Meeple":"미플","Juju":"주주","Shade":"셰이드","Kenji":"켄지","Moe":"모","Clancy":"클랜시","Berry":"베리","Lily":"릴리","Draco":"드라코","Angelo":"안젤로","Melodie":"멜로디","Larry & Lawrie":"래리 & 로리","Kit":"키트","Mico":"미코","Charlie":"찰리","Chuck":"척","Pearl":"펄","Doug":"더그","Cordelius":"코델리우스","Hank":"행크","Maisie":"메이지","Willow":"윌로우","R-T":"R-T","Mandy":"맨디","Gray":"그레이","Chester":"체스터","Buster":"버스터","Gus":"거스","Sam":"샘","Otis":"오티스","Bonnie":"보니","Janet":"자넷","Eve":"이브","Fang":"팽","Lola":"롤라","Meg":"메그","Ash":"애쉬","Griff":"그리프","Buzz":"버즈","Grom":"그롬","Squeak":"스퀴크","Belle":"벨","Stu":"스튜","Ruffs":"러프스","Edgar":"에드거","Byron":"바이런","Lou":"루","Amber":"앰버","Colette":"콜레트","Surge":"서지","Sprout":"스프라우트","Nani":"나니","Gale":"게일","Jacky":"재키","Max":"맥스","Mr. P":"미스터 P","Emz":"엠즈","Bea":"비","Sandy":"샌디","8-Bit":"8비트","Bibi":"비비","Carl":"칼","Rosa":"로사","Leon":"레온","Tick":"틱","Gene":"진","Frank":"프랭크","Penny":"페니","Darryl":"대릴","Tara":"타라","Pam":"팸","Piper":"파이퍼","Bo":"보","Poco":"포코","Crow":"크로우","Mortis":"모티스","El Primo":"엘 프리모","Dynamike":"다이너마이크","Nita":"니타","Jessie":"제시","Barley":"발리","Spike":"스파이크","Rico":"리코","Brock":"브록","Bull":"불","Colt":"콜트","Shelly":"쉘리"});
+const norm=s=>s.toLowerCase().replace(/[^a-z0-9]/g,'');
+const MAP_KO_N={};for(const k in MAP_KO)MAP_KO_N[norm(k)]=MAP_KO[k];
+/* Brawlify 맵 목록(15001356까지)에 아직 없는 신규 맵. 출처: BrawlTime 맵 페이지 (2026-11-18 확인) [id, 영문, 모드, 한글] */
+const NEW_MAPS=[[15001388,"Don't Leaf Me","Gem Grab","작별 인사"],[15001387,"Emotional Detachment","Gem Grab","정서적 거리 두기"],[15001389,"Ravenous Rapids","Gem Grab","폭주 급류"],[15001229,"Patchwork Peril","Mega Showdown","위험천만 패치워크"],[15001365,"Roundabout Rumble","Mega Showdown","로터리 럼블"],[15001369,"Quadrant Clash","Mega Showdown","사분면 클래시"],[15001395,"Sudden Movements","Bounty","기습적 움직임"],[15001393,"Endothermic Shift","Bounty","흡열 전환"],[15001394,"Eye Of The Beholder","Bounty","시선의 주인"],[15001384,"Printstream","Heist","프린트스트림"],[15001385,"Fires Across","Heist","교차 사격"],[15001386,"On The Lookout","Heist","주변 경계"],[15001379,"Passing Through","Brawl Ball","지나갈게요"],[15001378,"Human Nature","Brawl Ball","본성"],[15001380,"Front Tackle","Brawl Ball","정면 태클"],[15001383,"Sunken Harbor","Hot Zone","침몰한 항구"],[15001382,"Sectioned","Hot Zone","분할"],[15001381,"Framework","Hot Zone","프레임워크"],[15001363,"Patchwork Peril","Mega Duo Showdown","위험천만 패치워크"],[15001370,"Quadrant Clash","Mega Duo Showdown","사분면 클래시"],[15001368,"Roundabout Rumble","Mega Duo Showdown","로터리 럼블"],[15001392,"Pincer Movement","Knockout","협공"],[15001390,"Sound Waves","Knockout","음파"],[15001391,"Dry Run","Knockout","예행연습"]];
+const MAP_KO_ID={"15001388":"작별 인사","15000293":"평행선","15000502":"흐르는 샘","15000053":"뜨거운 감자","15000010":"보석 요새","15000019":"안전지대","15000050":"스니키 필드","15000132":"센터 스테이지","15000440":"타오르는 불사조","15000292":"신장개업","15001244":"소모전","15001014":"수정 눈의 성","15001378":"본성","15001058":"미리 준비","15001023":"경계 속으로","15000920":"대형 전투 분지","15000009":"독버섯 함정","15001370":"사분면 클래시","15001222":"캐빈 피버","15000997":"신기루 아레나","15001393":"흡열 전환","15001205":"선행의 대가","15001334":"물수제비","15000581":"적당한 중간지점","15001092":"백 셔플","15000429":"딥 엔드","15001241":"크림슨 디바이드","15001381":"프레임워크","15001330":"인기 급증","15001295":"슈퍼 링크","15001037":"페이퍼 잼","15001363":"위험천만 패치워크","15000460":"항복 없는 결투의 장","15001336":"연금술","15001394":"시선의 주인","15001062":"집 잽 줌","15001384":"프린트스트림","15001273":"제드나","15001323":"트리플 위협","15001048":"공허한 기계","15000387":"역전","15000882":"핫 뜨거워","15001220":"히트 앤 런","15001173":"콘나콜","15001175":"벽 끌어안기","15000927":"황금어장","15000852":"통통볼","15001265":"공허 지대","15000734":"네 개의 레벨","15000403":"스타더스트 스톰","15001287":"슈퍼컷","15001297":"브롤리 컵","15001061":"수색 및 파괴","15001267":"고독한 심해 물고기","15001268":"별을 향해","15001051":"속삭이는 계곡","15001064":"녹아웃 그라운드","15001382":"분할","15001165":"탈세","15000952":"모 아니면 도","15001103":"카타콤","15000379":"파워 앨리","15001047":"브롤러버스","15001091":"또 다른 경주","15001019":"이름 없는 거리","15001126":"저세상행 표","15001020":"풀 매듭","15000916":"고대의 보물","15001084":"크레딧 마니아","15001212":"깜짝 소굴","15001125":"존 스플릿","15001391":"예행연습","15001164":"지능적 술책 2","15001024":"서브웨이 터퍼","15001272":"온수 욕조","15001335":"거짓된 안심","15000390":"트리플 더블","15001053":"샛길","15000831":"저승의 반란","15000528":"새로운 시각","15000137":"피트 스톱","15001057":"플레이메이커","15000388":"앨리웁","15001176":"합창단원실","15000553":"돌아보지 마","15001207":"영구 운동","15001022":"아브라카다브라","15001163":"뜨거운 모래","15001098":"모든 악한 것","15000753":"종이 연못","15000824":"신성한 강림","15001210":"오프닝 무브","15001018":"더블 데커","15001065":"스맥돔","15001142":"크로켓","15000380":"스트롱 사이드","15001093":"좁고 긴 통로","15001099":"빛의 돔","15001080":"역병 의사 크로우","15001102":"수천 걸음의 여정","15001127":"기사도","15001202":"골든 베이","15001389":"폭주 급류","15000854":"쿨 박스","15001083":"원혼 켄지","15001050":"최후의 섬","15000853":"영하","15001242":"실버 하이랜드","15001105":"질량의 무게","15001383":"침몰한 항구","15001038":"사이드 허슬","15001228":"스타프루트 슈퍼노바","15001283":"파괴의 버섯","15001331":"분위기 고조","15001204":"골키퍼들","15000463":"전사의 길","15000343":"오래된 오락실","15001190":"착시 골목","15001276":"정글 탑","15000748":"녹슨 반동","15001386":"주변 경계","15001274":"하위 듀오","15000377":"타이거 점프","15001329":"신중한 발걸음","15000389":"슬램 덩크","15001144":"출입 통제 커뮤니티","15001387":"정서적 거리 두기","15001168":"알 까기","15001296":"하키 퍽 시티","15000931":"릴리기어 호수","15000144":"화창한 날","15000900":"GG 2.0","15001379":"지나갈게요","15000935":"충격 대비","15001200":"회자정리","15000992":"우거진 연못","15001155":"도화선 구역","15001332":"던전 열차","15000929":"옥상 위의 질주","15001246":"선조의 뿌리","15001219":"워터멜론","15000823":"에필로그 아레나","15001059":"물의 부름","15001021":"스파이럴 아웃","15001280":"해안 돌파","15000826":"최후의 경계","15001052":"극도의 무관심","15001206":"소리굽쇠","15001385":"교차 사격","15001333":"뜻밖의 행운","15000384":"볼 호그","15001054":"매치 1123581321","15001068":"백만 달러","15001266":"사나운 바다","15001208":"생생한 광경","15000295":"변명 금지","15000382":"정글 볼","15001027":"저장 구역","15001101":"크레센도","15001063":"구석진 동굴","15001104":"데스매치","15000003":"수정 공터","15001392":"협공","15001395":"기습적 움직임","15000378":"블로킹 파티","15001170":"100경","15001249":"아라베스크","15001049":"히히","15001286":"논두렁","15001036":"얇은 장벽","15001169":"무미건조","15001390":"음파","15001097":"매우 강력한 루","15000386":"포켓 패스","15000850":"슈퍼 센터","15001032":"리바운드 링","15001356":"수상함 제로","15001288":"냠냠 베리","15001089":"아틀라스","15000961":"플라잉 판타지","15001109":"진실","15001275":"춤사위","15001055":"1시 35분","15001338":"골문 압박","15000026":"핀홀 필드","15001040":"위스프윌로우 구","15000928":"귀중한 선인장","15001248":"미끌미끌 쇼다운","15001179":"옴짝달싹","15001324":"브롤러 리프트","15001201":"팔레트 행아웃","15001076":"1-2-3 플레이","15001368":"로터리 럼블","15001197":"핫 뜨거 미로","15001270":"북적북적","15000828":"천상의 투쟁","15001247":"끝까지 버티기","15001211":"집게","15001240":"본 슬리피","15000924":"브롤 스타게이트","15001056":"쏜살같은 시간","15000827":"지옥의 침략","15001026":"승승장구","15000932":"로컬 맛집","15001269":"압박 상태","15000820":"보일러실","15001067":"스타버스트","15001380":"정면 태클","15001123":"철로 대도","15001209":"사토미 스프링스","15001327":"코너 킥오프","15001171":"뱀 구덩이"};
+const BT='https://brawltime.ninja/media';
+const BT_MODE={gemGrab:'Gem Grab',brawlBall:'Brawl Ball',heist:'Heist',bounty:'Bounty',hotZone:'Hot Zone',knockout:'Knockout',soloShowdown:'Solo Showdown',duoShowdown:'Duo Showdown',trioShowdown:'Trio Showdown',airHockey:'Brawl Hockey',brawlArena:'Brawl Arena',knockout5V5:'Knockout 5v5',basketBrawl:'Basket Brawl',deathmatch:'Wipeout',deathmatch5v5:'Wipeout 5v5',brawlBall5V5:'Brawl Ball 5v5',loadedShowdown:'Loaded Showdown',bombHeist:'Safe Blast',treasureHunt:'Treasure Hunt',killConfirmed:'Soul Collector',tagTeam:'Duels',hunterSurvivor:'Hide & Seek',megaShowdown:'Mega Showdown',megaDuoShowdown:'Mega Duo Showdown'};
+const mapKo=m=>MAP_KO_ID[m.id]||m.ko||MAP_KO[m.name]||MAP_KO_N[norm(m.name)]||m.name;
+const POSN={F:'프론트라인',A:'암살·다이브',M:'미드 컨트롤',B:'백라인 저격',T:'투척 포격',S:'서포트'};
+const MODE_KO={'Gem Grab':'젬 그랩','Brawl Ball':'브롤 볼','Heist':'하이스트','Bounty':'바운티','Hot Zone':'핫 존','Knockout':'녹아웃','Solo Showdown':'솔로 쇼다운','Duo Showdown':'듀오 쇼다운','Trio Showdown':'트리오 쇼다운','Wipeout':'와이프아웃','Duels':'듀얼','Brawl Hockey':'브롤 하키','Basket Brawl':'바스켓 브롤','Volley Brawl':'발리 브롤','Hide & Seek':'숨바꼭질','Treasure Hunt':'보물 찾기','Super Ball':'슈퍼 볼','Brawl Arena':'브롤 아레나','Knockout 5v5':'녹아웃 5v5','Wipeout 5v5':'와이프아웃 5v5','Brawl Ball 5v5':'브롤 볼 5v5','Gem Grab 5v5':'젬 그랩 5v5','Dodgebrawl':'닷지브롤','Token Run':'토큰 런','Spirit Wars':'스피릿 워즈','Shadow Smash':'섀도우 스매시','Subway Run':'서브웨이 런','Soul Collector':'소울 컬렉터','Safe Blast':'금고 블라스트','Present Plunder':'선물 약탈','Mega Showdown':'메가 쇼다운','Mega Duo Showdown':'메가 듀오 쇼다운'};
+const RANKED=['Gem Grab','Brawl Ball','Heist','Bounty','Hot Zone','Knockout'];
+
+/* ===================== 모드 프로필 ===================== */
+function modeProfile(name){
+  const n=name.toLowerCase();
+  let size=3; if(/5v5|5 player/.test(n)) size=5; if(/solo/.test(n)) size=1; if(/duo/.test(n)) size=2;
+  const base={size,kind:'gen',shift:0,w:{hp:.6,d:.8,b:.6,m:.5,c:.6,h:.5,w:.4,t:.6,k:1},roles:['메인 딜러','서브 컨트롤','유틸리티']};
+  const set=(kind,shift,w,roles)=>Object.assign(base,{kind,shift,w:{...base.w,...w},roles});
+  if(/gem/.test(n)) set('gem',0,{hp:.7,d:.9,c:.8,h:.6,t:.9},['젬 캐리어 (미드)','사이드 레인 압박','반대 레인 견제']);
+  else if(/ball|hockey|basket|volley|super ball|dodge/.test(n)) set('ball',-1,{hp:.9,b:.8,m:.9,c:.9,w:1.3,t:.4},['볼 캐리어','벽 파괴·진입','골 수비 앵커']);
+  else if(/heist|safe/.test(n)) set('heist',0,{d:1.5,b:.9,m:.6,w:.8,hp:.6},['금고 다이브','수비 앵커','레인 압박']);
+  else if(/bounty|knockout|wipeout/.test(n)) set('pick',1.2,{hp:.3,b:.9,m:.4,c:.6,h:.4,w:.2},['저격 앵커','견제·마무리','안전한 백업']);
+  else if(/zone/.test(n)) set('zone',-.3,{hp:.9,d:1,c:.9,h:.8,t:.8},['존 앵커','존 장악 딜러','서포트']);
+  else if(/showdown/.test(n)) set('sd',0,{hp:.9,d:.9,b:.7,m:.6,h:.5,c:.4,w:.3},['생존 메인','서브 캐리','견제']);
+  else if(/duels/.test(n)) set('duel',0,{hp:.7,b:1,d:.8,k:1.2},['1번 선봉','2번 중견','3번 대장']);
+  else if(/boss|mecha|guard/.test(n)) set('pve',.5,{d:1.4,h:.8,hp:.5},['메인 딜러','서브 딜러','힐러']);
+  if(/duels/.test(n)) base.size=3;
+  if(/showdown/.test(n)&&!/duo|trio/.test(n)) base.size=1;
+  return base;
+}
+
+/* ===================== 맵 이미지 분석 ===================== */
+function hueOf(r,g,b){const mx=Math.max(r,g,b),mn=Math.min(r,g,b);if(mx===mn)return 0;let h;const d=mx-mn;if(mx===r)h=((g-b)/d)%6;else if(mx===g)h=(b-r)/d+2;else h=(r-g)/d+4;return (h*60+360)%360}
+// data: RGBA 바이트 배열 (canvas getImageData 와 같은 형식), W×H: 원본 해상도
+function analyzePixels(data,W,H){
+  // 3v3 세로 맵은 테두리 포함 23×35 타일 (해상도는 맵마다 다름), 그 외는 30px 타일
+  const tall=H>W*1.3;
+  const cols=tall?23:Math.floor(W/30), rows=tall?35:Math.floor(H/30), TX=W/cols, TY=H/rows, T=Math.min(TX,TY);
+  const tiles=[];
+  for(let y=0;y<rows;y++)for(let x=0;x<cols;x++){
+    let r=0,g=0,b=0,n=0,v=0;
+    const m=T*.2, st=Math.max(2,Math.round(T/10));
+    for(let yy=m;yy<T-m;yy+=st)for(let xx=m;xx<T-m;xx+=st){const i=((Math.floor(y*TY+(TY-T)/2+yy))*W+Math.floor(x*TX+(TX-T)/2+xx))*4;r+=data[i];g+=data[i+1];b+=data[i+2];v+=data[i]*data[i]+data[i+1]*data[i+1];n++}
+    r/=n;g/=n;b/=n;tiles.push({x,y,r,g,b,var:v/n-(r*r+g*g)});
+  }
+  // 바닥색 = 가장 흔한 양자화 색 상위 2개 (체크무늬)
+  const hist={};tiles.forEach(t=>{const k=(t.r>>4)+','+(t.g>>4)+','+(t.b>>4);hist[k]=(hist[k]||0)+1;t.k=k});
+  const top=Object.entries(hist).sort((a,b)=>b[1]-a[1]).slice(0,2).map(e=>e[0].split(',').map(v=>v*16+8));
+  const dist=(t,c)=>Math.hypot(t.r-c[0],t.g-c[1],t.b-c[2]);
+  const inner=tiles.filter(t=>t.x>0&&t.y>0&&t.x<cols-1&&t.y<rows-1);
+  inner.forEach(t=>{t.cover=Math.min(...top.map(c=>dist(t,c)))>34});
+  const cov=inner.filter(t=>t.cover);
+  cov.forEach(t=>{const h=hueOf(t.r,t.g,t.b);const mx=Math.max(t.r,t.g,t.b),mn=Math.min(t.r,t.g,t.b);const sat=mx?(mx-mn)/mx:0;t.bush=h>=85&&h<=215&&sat>.35});
+  const n=inner.length||1, bush=cov.filter(t=>t.bush).length/n, cover=cov.length/n, wall=cover-bush;
+  // 시야선: 열마다 가장 긴 열린 구간
+  const grid={};inner.forEach(t=>grid[t.x+','+t.y]=t);
+  let sl=0,cc=0;for(let x=1;x<cols-1;x++){let run=0,best=0;for(let y=1;y<rows-1;y++){const t=grid[x+','+y];if(t&&!t.cover){run++;best=Math.max(best,run)}else run=0}sl+=best/(rows-2);cc++}
+  const sight=sl/(cc||1);
+  const mid=inner.filter(t=>t.y>rows*.33&&t.y<rows*.66), midOpen=mid.filter(t=>!t.cover).length/(mid.length||1);
+  // 레인 분리: 좌/중/우 열 커버 차이
+  const lane=[0,1,2].map(i=>{const s=inner.filter(t=>Math.floor((t.x-1)/((cols-2)/3))===i);return s.filter(t=>t.cover).length/(s.length||1)});
+  const laneSplit=Math.min(1,Math.abs(lane[1]-(lane[0]+lane[2])/2)*3);
+  return {ok:true,cols,rows,tiles:inner,TX,TY,cover,bush,wall,open:1-cover,sight,midOpen,laneSplit};
+}
+function fallbackFeat(mode){const k=modeProfile(mode).kind;const d={pick:[.25,.08,.17,.62,.7],ball:[.3,.12,.18,.45,.5],gem:[.32,.12,.2,.45,.55],heist:[.3,.1,.2,.5,.55],zone:[.3,.1,.2,.45,.4],sd:[.35,.2,.15,.4,.5]}[k]||[.3,.12,.18,.45,.5];return {ok:false,cover:d[0],bush:d[1],wall:d[2],open:1-d[0],sight:d[3],midOpen:d[4],laneSplit:.3}}
+
+function demands(f,mp){
+  const c=v=>Math.max(0,Math.min(1,v));
+  const dm={
+    range:c(f.sight*.9+f.open*.5-.25+(mp.kind==='pick'?.2:0)),
+    throw:c(f.wall*2.4+(1-f.sight)*.3-.15),
+    wb:c(f.wall*2.2-.1+(mp.kind==='ball'?.3:0)),
+    bush:c(f.bush*3.2),
+    tank:c((1-f.sight)*.6+f.cover*.8-.2+(mp.kind==='ball'||mp.kind==='zone'?.2:0)),
+    dive:c(f.bush*2+f.wall*1.2-f.open*.3+.15),
+    mid:c(f.midOpen*.8+(mp.kind==='gem'||mp.kind==='zone'?.3:0)),
+  };
+  return dm;
+}
+
+/* ===================== 조합 엔진 ===================== */
+let DATA={brawlers:[],maps:[],modes:{}}, STATE={mode:'RANKED',q:'',retired:false,map:null,enemy:[],lock:[],ban:[],stats:null};
+const inPool=m=>DATA.hasLive?!!m.live:!m.disabled;
+const has=(tag,n)=>TAGS[tag].includes(n);
+function prof(b){return b.prof}
+function indivFit(b,mp,dm){
+  const p=b.prof,w=mp.w; const ideal=1.8+3*dm.range+mp.shift*.4;
+  let s=(1-Math.min(1,Math.abs(p.r-ideal)/3.5))*2.2;
+  s+=p.hp/5*w.hp*(.6+dm.tank*.6)+p.d/5*w.d+p.b/5*w.b+p.m/5*w.m*(.6+dm.dive*.5)+p.c/3*w.c+p.h/3*w.h+p.w/2*w.w*dm.wb*1.6+p.t*w.t*dm.throw*1.5+(p.k-3)*.55*w.k;
+  s+={F:dm.tank,A:dm.dive,B:dm.range,T:dm.throw,M:dm.mid*.8,S:.35}[p.p]*1.1;
+  if(has('bushCheck',b.name))s+=dm.bush*1.2; if(has('zone',b.name)&&(mp.kind==='zone'||mp.kind==='gem'))s+=.5;
+  const e=STATE.stats?.eff[b.name.toUpperCase()]; if(e!=null)s+=Math.max(-3,Math.min(4,e*30));
+  if(mp.kind==='heist'&&p.d>=4)s+=.4; if(mp.kind==='ball'&&p.p==='F')s+=.3; if(mp.size===1&&p.p==='S'&&p.h>=2)s-=.8;
+  return s;
+}
+function beats(a,b,dm){ // a가 b를 얼마나 카운터하는가
+  const A=a.prof,B=b.prof;let s=0;
+  if(A.p==='A'&&(B.p==='B'||B.p==='T'))s+=1; if(A.p==='A'&&B.p==='F')s-=.6;
+  if(has('antiTank',a.name)&&B.p==='F')s+=1; if(A.p==='T'&&B.p==='F')s+=.7*dm.throw+.2; if(A.p==='T'&&(B.p==='A'))s-=.6;
+  if(A.p==='B'&&B.p==='T')s+=.5*dm.range; if(A.p==='F'&&(B.p==='B'||B.p==='T'))s+=.5*(1-dm.range);
+  if(A.c>=2&&B.p==='A')s+=.7; if(has('antiHeal',a.name)&&B.h>=2)s+=.8; if(A.r-B.r>=2&&B.m<=2)s+=.4*dm.range;
+  if(has('bushCheck',a.name)&&(B.p==='A'||has('invis',b.name)))s+=.4*dm.bush+.1;
+  return s;
+}
+function teamEval(team,mp,dm,pool){
+  const P=team.map(b=>b.prof),n=team.length;
+  const fit=team.reduce((s,b)=>s+b.fit,0)/n;
+  const pos={};P.forEach(p=>pos[p.p]=(pos[p.p]||0)+1);
+  const rs=P.map(p=>p.r);
+  const f={};
+  f.map=fit;
+  f.range=n>1?Math.min(1,(Math.max(...rs)-Math.min(...rs))/3)*.5+Math.min(1,Math.max(...rs)/5)*.5:rs[0]/5;
+  let bal=1;Object.values(pos).forEach(v=>{if(v>1)bal-=.25*(v-1)*(n<=3?1.4:.8)});
+  if(n>=3&&!(pos.F||pos.A))bal-=.2; if(n>=3&&!(pos.B||pos.M||pos.T))bal-=.3; if((pos.S||0)>1)bal-=.3;
+  f.balance=Math.max(0,bal);
+  f.cc=Math.min(1,P.reduce((s,p)=>s+p.c,0)/(n*1.6));
+  f.sustain=Math.min(1,(P.reduce((s,p)=>s+p.hp,0)/n/5)*.6+Math.min(1,P.reduce((s,p)=>s+p.h,0)/3)*.4);
+  f.wall=Math.min(1,(P.some(p=>p.w>0)?.6:0)*dm.wb+(P.some(p=>p.t)?.5:0)*dm.throw+(1-Math.max(dm.wb,dm.throw))*.6);
+  f.bush=team.some(b=>has('bushCheck',b.name))?Math.min(1,.55+dm.bush*.5):1-dm.bush*.8;
+  // 카운터 내성: 풀의 상위 위협이 이 팀을 얼마나 때리는지
+  const threat=pool.slice(0,30).map(e=>team.includes(e)?0:team.reduce((s,t)=>s+beats(e,t,dm)-beats(t,e,dm)*.5,0)/n).sort((a,b)=>b-a);
+  f.counter=Math.max(0,Math.min(1,1-(threat[0]+threat[1]+threat[2])/3/1.6));
+  let syn=0;
+  const supp=P.filter(p=>p.p==='S').length, front=P.filter(p=>p.p==='F'||p.p==='A').length;
+  if(supp&&front)syn+=.35; if(P.some(p=>p.c>=2)&&P.some(p=>p.b>=4))syn+=.3;
+  if(team.some(b=>has('pull',b.name))&&P.some(p=>p.b>=4||p.p==='T'))syn+=.25;
+  if(team.some(b=>b.name==='Max')&&front)syn+=.2; if(P.filter(p=>p.t).length===1&&P.some(p=>p.p==='F'))syn+=.2;
+  f.synergy=Math.min(1,syn+.2);
+  f.meta=P.reduce((s,p)=>s+p.k,0)/n/5;
+  f.avgEff=team.reduce((s,b)=>s+(b.eff||0),0)/n;
+  f.stats=STATE.stats?Math.max(0,Math.min(1,.5+f.avgEff*5)):null;
+  // 상대 픽 대응
+  let vsE=0;if(STATE.enemy.length){const E=STATE.enemy.map(id=>DATA.byId[id]);vsE=team.reduce((s,t)=>s+E.reduce((q,e)=>q+beats(t,e,dm)-beats(e,t,dm),0),0)/(n*E.length);}
+  f.enemy=Math.max(0,Math.min(1,.5+vsE/2));
+  const W={map:2.2,range:.8,balance:1.4,cc:.7,sustain:.8,wall:.7,bush:.5,counter:1,synergy:.8,meta:.9,enemy:STATE.enemy.length?1.8:0,stats:STATE.stats?2:0};
+  if(mp.kind==='pick'){W.range=1.4;W.sustain=.4}
+  if(mp.kind==='ball'){W.wall=1.2;W.cc=1}
+  if(mp.kind==='zone'){W.sustain=1.2;W.cc=1}
+  if(n===1){W.balance=0;W.synergy=0;W.range=.3}
+  const fitN=Math.max(0,Math.min(1,(fit-2)/5.2));
+  let tot=0,ws=0;for(const k in W){if(!W[k])continue;const v=k==='map'?fitN:f[k];tot+=v*W[k];ws+=W[k]}
+  const score=Math.round(40+60*Math.pow(tot/ws,1.3));
+  f.mapN=fitN;
+  return {team,score,f,threat};
+}
+function archetype(team){
+  const c={};team.forEach(b=>c[b.prof.p]=(c[b.prof.p]||0)+1);
+  if((c.T||0)>=2)return '투척 포격 시즈';if((c.A||0)>=2)return '다이브 러시';if((c.B||0)>=2)return '롱레인지 포크';if((c.F||0)>=2)return '탱크 러시';
+  if(c.S&&(c.F||c.A))return '서포트 중심 돌진';if(c.T&&c.F)return '탱크 + 포격 앵커';if(c.M>=2)return '컨트롤 장악';return '밸런스 표준';
+}
+function solve(mp,dm){
+  const pool=DATA.brawlers.filter(b=>!STATE.ban.includes(b.id)&&!STATE.enemy.includes(b.id)).map(b=>({...b,fit:indivFit(b,mp,dm),eff:STATE.stats?.eff[b.name.toUpperCase()]}));
+  pool.sort((a,b)=>b.fit-a.fit);
+  DATA.pool=pool; const byId={};pool.forEach(b=>byId[b.id]=b);
+  const lock=STATE.lock.map(id=>byId[id]).filter(Boolean).slice(0,mp.size);
+  const N=mp.size>=5?18:mp.size===3?28:mp.size===2?40:pool.length;
+  const cand=pool.slice(0,N).filter(b=>!lock.includes(b));
+  const need=mp.size-lock.length, out=[];let count=0;
+  const rec=(start,cur)=>{if(cur.length===need){count++;out.push(teamEval([...lock,...cur],mp,dm,pool));return}for(let i=start;i<cand.length;i++){cur.push(cand[i]);rec(i+1,cur);cur.pop()}};
+  rec(0,[]);
+  out.sort((a,b)=>b.score-a.score);
+  // 다양성: 고정 픽을 뺀 나머지 자리끼리 비교해, 이미 고른 조합과 너무 많이 겹치면 건너뜀
+  // (자유 슬롯 1~2개: 완전히 같은 조합만 제외 / 3개 이상: 자유 슬롯 수 - 1명 이상 겹치면 제외)
+  const limit=need<=2?need:need-1;
+  const free=o=>o.team.filter(x=>!lock.includes(x));
+  const pick=[];
+  for(const o of out){
+    const mine=free(o);
+    if(pick.every(p=>free(p).filter(x=>mine.includes(x)).length<limit))pick.push(o);
+    if(pick.length>=6)break;
+  }
+  return {list:pick,count,pool};
+}
+
+/* 모드별 역할 후보. 각 역할에 어울리는 정도(f)를 계산해, 팀 전체 합이 가장 큰 배치를 고른다.
+   req: 그 모드에서 반드시 누군가 맡아야 하는 역할 */
+const POS_IS=(p,...xs)=>xs.includes(p.p)?1:0;
+const ROLE_POOL={
+  gem:[
+    {n:'젬 캐리어 (미드)',req:1,f:p=>p.hp*1.2+p.c+2*POS_IS(p,'M','S')-2*POS_IS(p,'A')},
+    {n:'사이드 레인 압박',f:p=>p.d+p.b+1.5*POS_IS(p,'B','M')},
+    {n:'반대 레인 견제',f:p=>p.r*1.2+1.5*POS_IS(p,'B','T')},
+    {n:'전방 탱커',f:p=>p.hp*1.5+3*POS_IS(p,'F')},
+    {n:'부쉬 견제·다이브',f:p=>p.m*1.2+3*POS_IS(p,'A')},
+    {n:'힐·버프 서포트',f:p=>p.h*1.5+3*POS_IS(p,'S')}],
+  ball:[
+    {n:'볼 캐리어',req:1,f:p=>p.hp+p.m*1.3+2*POS_IS(p,'F','A')},
+    {n:'벽 파괴·진입',f:p=>p.w*2.5+p.b*.5},
+    {n:'골 수비 앵커',f:p=>p.c*1.2+p.r*.6+p.hp*.5+1.5*POS_IS(p,'M','S')},
+    {n:'후방 견제',f:p=>p.r*1.2+1.5*POS_IS(p,'B','T')},
+    {n:'2차 진입',f:p=>p.m+p.b+2*POS_IS(p,'A')},
+    {n:'서포트',f:p=>p.h*1.5+3*POS_IS(p,'S')}],
+  heist:[
+    {n:'금고 다이브',req:1,f:p=>p.d*1.5+p.m+1.5*POS_IS(p,'A','F')},
+    {n:'수비 앵커',f:p=>p.c*1.2+p.hp*.6+1.5*POS_IS(p,'M','S')},
+    {n:'레인 압박',f:p=>p.r+p.d+1.5*POS_IS(p,'B','T')},
+    {n:'탱커 방어',f:p=>p.hp*1.5+3*POS_IS(p,'F')},
+    {n:'서포트',f:p=>p.h*1.5+3*POS_IS(p,'S')}],
+  pick:[
+    {n:'저격 앵커',f:p=>p.r*1.5+2*POS_IS(p,'B')},
+    {n:'견제·마무리',f:p=>p.b+p.d*.5+1.5*POS_IS(p,'M')},
+    {n:'안전한 백업',f:p=>p.h+p.r*.5+1.5*POS_IS(p,'S','M')},
+    {n:'벽 뒤 포격',f:p=>p.t*3+p.r*.5},
+    {n:'전방 압박',f:p=>p.hp*1.2+3*POS_IS(p,'F')},
+    {n:'측면 암살',f:p=>p.m*1.2+3*POS_IS(p,'A')}],
+  zone:[
+    {n:'존 앵커',req:1,f:(p,b)=>p.hp+(has('zone',b.name)?3:0)+POS_IS(p,'F')},
+    {n:'존 장악 딜러',f:p=>p.d*1.2+p.c},
+    {n:'외곽 견제',f:p=>p.r*1.2+1.5*POS_IS(p,'B','T')},
+    {n:'진입 차단',f:p=>p.c*1.2+p.m*.5+2*POS_IS(p,'A','F')},
+    {n:'서포트',f:p=>p.h*1.5+3*POS_IS(p,'S')}],
+  sd:[
+    {n:'생존 메인',f:p=>p.hp*1.2+p.h},
+    {n:'서브 캐리',f:p=>p.d+p.b},
+    {n:'견제',f:p=>p.r*1.2+p.c*.5}],
+  pve:[
+    {n:'메인 딜러',f:p=>p.d*1.5},
+    {n:'서브 딜러',f:p=>p.d+p.b*.8},
+    {n:'힐러',f:p=>p.h*2+3*POS_IS(p,'S')},
+    {n:'탱커',f:p=>p.hp*1.5+3*POS_IS(p,'F')}],
+};
+function assignRoles(team,mp){
+  if(mp.size===1)return [{b:team[0],role:'솔로 생존'}];
+  const pool=ROLE_POOL[mp.kind];
+  if(!pool||pool.length<team.length){
+    // 듀얼·기타 모드: 적합도 순서대로 모드 기본 역할 부여
+    const t=[...team].sort((a,b)=>b.fit-a.fit);
+    return t.map((b,i)=>({b,role:mp.roles[i]||mp.roles[mp.roles.length-1]}));
+  }
+  const S=team.map(b=>pool.map(r=>r.f(b.prof,b)));
+  let best=null,bestV=-Infinity;const used=new Array(pool.length).fill(false),cur=[];
+  const rec=i=>{
+    if(i===team.length){
+      if(pool.some((r,j)=>r.req&&!used[j]))return;
+      const v=cur.reduce((s,j,k)=>s+S[k][j],0);if(v>bestV){bestV=v;best=[...cur]}return;
+    }
+    for(let j=0;j<pool.length;j++){if(used[j])continue;used[j]=true;cur.push(j);rec(i+1);cur.pop();used[j]=false}
+  };
+  rec(0);
+  // 역할 후보 순서(주 역할 먼저)대로 카드 배치
+  return team.map((b,k)=>({b,role:pool[best[k]].n,o:best[k]})).sort((a,b)=>a.o-b.o);
+}
+function draftOrder(team,dm){
+  // 블라인드 안전도: 메타 파워 + 다른 브롤러에게 덜 카운터당함
+  const safe=b=>b.prof.k*1.2-DATA.pool.slice(0,25).reduce((s,e)=>s+Math.max(0,beats(e,b,dm)),0)/6+(b.prof.p==='M'||b.prof.p==='S'?.6:0)-(b.prof.p==='A'?.8:0);
+  return [...team].sort((a,b)=>safe(b)-safe(a));
+}
+
+/* ===================== 결과 해석 (웹 결과 카드와 공용) ===================== */
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const ko=b=>KO[b.name]||b.name, mko=m=>MODE_KO[m]||m;
+function mapImgs(m){const a=[];if(typeof m.id==='number')a.push(`${BT}/maps/${m.id}.png`);if(m.img)a.push(m.img);return a}
+const pct=v=>Math.round(v*100);
+const FLAB={stats:'실전 승률 데이터',mapN:'맵 적합도',range:'사거리 커버리지',balance:'역할 밸런스',cc:'군중 제어',sustain:'지속력 (체력·힐)',wall:'벽 대응 (파괴·투척)',bush:'부쉬 장악',counter:'카운터 내성',synergy:'시너지',meta:'메타 파워',enemy:'상대 픽 대응'};
+function why(best,mp,dm,feat){
+  const t=best.team,P=t.map(b=>b.prof),out=[];
+  const st=STATE.stats;
+  if(st){const top=DATA.pool.filter(b=>b.eff!=null).sort((a,b)=>b.eff-a.eff).slice(0,3);
+    out.push(`최근 4주 ${esc(st.preset)} ${st.battles.toLocaleString()}판 기준, 이 맵에서 승률 효과가 가장 높은 브롤러는 ${top.map(b=>`${esc(ko(b))}(+${(b.eff*100).toFixed(1)}%p)`).join(', ')}입니다. 조합 평균은 ${best.f.avgEff>=0?'+':''}${(best.f.avgEff*100).toFixed(1)}%p예요.`)}
+  if(dm.range>.55)out.push(`시야선이 길게 열린 맵(${pct(feat.sight)}%)이라 장거리 견제 브롤러의 가치가 높습니다.`);
+  else if(dm.range<.35)out.push(`시야가 자주 끊기는 맵이라 저격보다 근·중거리 교전이 잦습니다.`);
+  if(dm.throw>.5)out.push(`벽 밀도가 높아(${pct(feat.wall)}%) 벽 뒤에서 포격하는 투척형이 안전하게 딜을 넣습니다.${P.some(p=>p.t)?' 조합에 투척형을 포함했습니다.':''}`);
+  if(dm.wb>.5&&P.some(p=>p.w))out.push(`벽 파괴 수단(${t.filter(b=>b.prof.w).map(ko).join(', ')})으로 상대 엄폐물과 투척 각을 지울 수 있습니다.`);
+  if(dm.bush>.4)out.push(t.some(b=>has('bushCheck',b.name))?`부쉬가 많아(${pct(feat.bush)}%) 범위 공격으로 부쉬를 확인할 수 있는 ${t.filter(b=>has('bushCheck',b.name)).map(ko).join(', ')}을(를) 넣었습니다.`:`부쉬가 많아 매복에 주의해야 합니다. 부쉬 체크는 컨트롤 담당이 맡으세요.`);
+  if(P.some(p=>p.p==='S'))out.push(`서포트(${t.filter(b=>b.prof.p==='S').map(ko).join(', ')})가 진입 라인의 지속력을 올려 장기전에 강합니다.`);
+  if(best.f.cc>.6)out.push(`군중 제어 합이 높아 상대 다이브와 볼 캐리를 끊어내기 좋습니다.`);
+  if(mp.kind==='gem')out.push('젬 캐리어는 미드에서 생존을 최우선으로, 젬 7개 이후에는 무리한 교전을 피하세요.');
+  if(mp.kind==='ball')out.push('공 소유권을 잃었을 때 바로 수비 앵커가 골대 앞을 지키도록 위치를 잡으세요.');
+  if(mp.kind==='heist')out.push('금고 딜이 높은 브롤러가 다이브할 타이밍은 상대 핵심 수비수가 쓰러진 직후입니다.');
+  if(mp.kind==='pick')out.push('먼저 한 명을 잡고 수적 우위에서만 진입하세요. 무리한 진입은 그대로 상대 점수가 됩니다.');
+  if(mp.kind==='zone')out.push('존 안에 오래 머물 체력과 회복이 핵심입니다. 존 앵커가 먼저 들어가고 나머지가 각을 엽니다.');
+  return out;
+}
+// 추정 승률 (이 페이지 자체 계산값, 공식 통계 아님). 소수 첫째 자리 문자열
+function estWinRate(best){return (STATE.stats?Math.max(40,Math.min(70,50+best.f.avgEff*100+(best.score-70)*.15)):Math.min(71,46+(best.score-60)*.55)).toFixed(1)}
+// 결과 카드에 보여 줄 평가 항목
+function factorKeys(mp){return Object.keys(FLAB).filter(k=>k!=='enemy'||STATE.enemy.length).filter(k=>k!=='stats'||STATE.stats).filter(k=>mp.size>1||!['balance','synergy','range'].includes(k))}
+// 밴 추천: 이 조합을 가장 강하게 카운터하는 상위 3명
+function banThreats(R,best,dm){return R.pool.filter(e=>!best.team.includes(e)).map(e=>({e,v:best.team.reduce((s,t)=>s+beats(e,t,dm)-beats(t,e,dm)*.5,0)+e.fit*.15})).sort((a,b)=>b.v-a.v).slice(0,3)}
+// BrawlTime 맵별 통계 JSON → 승률 효과. 랭크 → 레전더리 트로피 → 트로피 순으로 사용 (데이터가 없으면 예외)
+function parseStats(j){
+  const [pk,p]=[['ranked','랭크'],['legendary','레전더리 트로피'],['trophies','트로피']].map(([key,l])=>[l,j.presets[key]]).find(x=>x[1]);
+  const eff={};p.best.forEach(x=>eff[x.brawler]=x.effect);
+  return {eff,battles:p.battles,preset:pk,from:j.from,until:j.until};
+}
+
+/* ===================== 데이터 구성 (Brawlify 목록 + NEW_MAPS + BrawlTime 맵 풀) ===================== */
+function buildData(maps,brs,sJ){
+  DATA.maps=maps.map(m=>({id:m.id,name:m.name,img:m.imageUrl,disabled:m.disabled,isNew:m.new,mode:m.gameMode.name,modeImg:m.gameMode.imageUrl,color:m.gameMode.color,env:m.environment?.name}));
+  // 모드 아이콘·색 (신규 모드는 비슷한 모드 것을 빌려 씀)
+  const MI={};DATA.maps.forEach(m=>{MI[m.mode]=MI[m.mode]||{img:m.modeImg,color:m.color}});
+  MI['Mega Showdown']=MI['Mega Showdown']||MI['Solo Showdown'];MI['Mega Duo Showdown']=MI['Mega Duo Showdown']||MI['Duo Showdown'];
+  const mk=(id,name,mode,ko)=>({id,name,ko,img:typeof id==='number'?`https://cdn.brawlify.com/maps/regular/${id}.png`:null,disabled:false,isNew:true,mode,modeImg:MI[mode]?.img,color:MI[mode]?.color||'#9b5cff'});
+  const known=new Set(DATA.maps.map(m=>m.id));
+  NEW_MAPS.forEach(([id,name,mode,ko])=>{if(!known.has(id))DATA.maps.push(mk(id,name,mode,ko))});
+  // 현재 맵 풀 = BrawlTime 최근 4주 실전 기록이 있는 맵
+  DATA.hasLive=false;
+  if(sJ?.files?.maps){
+    DATA.window=sJ.from+' ~ '+sJ.until;
+    for(const [bm,slugs] of Object.entries(sJ.files.maps)){const mode=BT_MODE[bm]||bm;
+      for(const s of slugs){if(s==='competition-entry')continue;const n=norm(s);
+        const c=DATA.maps.filter(m=>norm(m.name)===n);let hit=c.filter(m=>m.mode===mode);if(!hit.length)hit=c;
+        if(!hit.length){const m=mk('bt-'+bm+'-'+s,s.split('-').map(w=>w[0].toUpperCase()+w.slice(1)).join(' '),mode);DATA.maps.push(m);hit=[m]}
+        const m=hit.reduce((a,b)=>(+b.id||0)>(+a.id||0)?b:a);m.live=true;m.disabled=false;m.bt={mode:bm,slug:s};DATA.hasLive=true}}
+  }
+  DATA.maps.sort((a,b)=>(b.live?1:0)-(a.live?1:0)||(+b.id||0)-(+a.id||0));
+  DATA.brawlers=brs.filter(b=>b.released!==false).map(b=>{const base=PROF[b.name]||(()=>{const v=(CLASS_BASE[b.class?.name]||CLASS_BASE['Damage Dealer']).split(' ');return{r:+v[0],hp:+v[1],d:+v[2],b:+v[3],m:+v[4],c:+v[5],w:+v[6],t:+v[7],h:+v[8],k:+v[9],p:v[10],auto:1}})();
+    return {id:b.id,name:b.name,img:b.imageUrl2,cls:b.class?.name,rarity:b.rarity?.color||'#888',prof:base}});
+  DATA.byId={};DATA.brawlers.forEach(b=>DATA.byId[b.id]=b);
+  DATA.modes={};DATA.maps.forEach(m=>{(DATA.modes[m.mode]=DATA.modes[m.mode]||{name:m.mode,img:m.modeImg,color:m.color,n:0,live:0}).n++;if(inPool(m))DATA.modes[m.mode].live++});
+}
+
+/* ===================== 호스트 API (iOS JavaScriptCore 등) =====================
+   웹 화면의 runEngine → renderResult 와 같은 함수를 같은 순서로 호출하고, 화면에 그리는 대신 JSON 객체로 돌려준다.
+   여기서는 계산을 새로 하지 않는다. 위의 함수 호출과 결과 정리만 한다. */
+function featSummary(f){const o={};for(const k of ['ok','cols','rows','TX','TY','cover','bush','wall','open','sight','midOpen','laneSplit'])if(f[k]!==undefined)o[k]=f[k];return o}
+var DraftEngine={
+  version:1,
+  // maps / brawlers: Brawlify /v1/maps, /v1/brawlers 의 list. strength: BrawlTime brawler-strength.json (실패 시 null)
+  load(maps,brawlers,strength){DATA={brawlers:[],maps:[],modes:{}};buildData(maps,brawlers,strength||null);return DraftEngine.catalog()},
+  // 현재 맵 풀(웹의 inPool 과 같은 기준)과 브롤러 목록. 화면 인식용 이름 사전도 여기서 만든다
+  catalog(){return {window:DATA.window||null,hasLive:!!DATA.hasLive,
+    maps:DATA.maps.filter(inPool).map(m=>({id:m.id,name:m.name,ko:mapKo(m),mode:m.mode,modeKo:mko(m.mode),ranked:RANKED.includes(m.mode),size:modeProfile(m.mode).size,live:!!m.live,isNew:!!m.isNew,bt:m.bt||null,images:mapImgs(m)})),
+    brawlers:DATA.brawlers.map(b=>({id:b.id,name:b.name,ko:ko(b),img:b.img,position:b.prof.p,estimatedProfile:!!b.prof.auto}))}},
+  // 맵 이미지 픽셀(RGBA) → 맵 특성. 웹의 analyzeImage 와 같은 analyzePixels 를 쓴다
+  analyzePixels(data,W,H){return featSummary(analyzePixels(data,W,H))},
+  fallbackFeat(mode){return fallbackFeat(mode)},
+  // BrawlTime 맵별 통계 JSON → 승률 효과 (웹과 같이 실패하면 null)
+  parseStats(j){try{return parseStats(j)}catch(e){return null}},
+  // opt: {stats, lock:[id], enemy:[id], ban:[id]}. 반환: 웹 결과 카드에 그려지는 값과 같은 내용
+  recommend(mapId,feat,opt){
+    opt=opt||{};
+    const m=DATA.maps.find(x=>x.id===mapId);if(!m)throw new Error('unknown map '+mapId);
+    STATE.map=m;STATE.stats=opt.stats||null;STATE.lock=(opt.lock||[]).slice();STATE.enemy=(opt.enemy||[]).slice();STATE.ban=(opt.ban||[]).slice();
+    const mp=modeProfile(m.mode),dm=demands(feat,mp);
+    const R=solve(mp,dm);
+    const card=b=>({id:b.id,name:b.name,ko:ko(b),img:b.img,position:b.prof.p,positionKo:POSN[b.prof.p],estimatedProfile:!!b.prof.auto,eff:b.eff==null?null:b.eff});
+    const teams=R.list.map((o,i)=>{
+      const roles=assignRoles(o.team,mp),order=draftOrder(o.team,dm);
+      return {rank:i+1,ids:o.team.map(b=>b.id),score:o.score,estimatedWinRate:estWinRate(o),archetype:archetype(o.team),f:o.f,
+        members:roles.map(r=>({...card(r.b),role:r.role,pick:mp.size>1?order.indexOf(r.b)+1:null})),
+        factors:factorKeys(mp).map(k=>({key:k,label:FLAB[k],value:k==='mapN'?o.f.mapN:o.f[k]})),
+        reasons:why(o,mp,dm,feat),
+        threats:banThreats(R,o,dm).map(x=>card(x.e))};
+    });
+    const st=STATE.stats;
+    return {engineVersion:DraftEngine.version,
+      map:{id:m.id,name:m.name,ko:mapKo(m),mode:m.mode,modeKo:mko(m.mode),kind:mp.kind,size:mp.size,live:!!m.live},
+      feat:featSummary(feat),demands:dm,
+      stats:st?{preset:st.preset,battles:st.battles,from:st.from,until:st.until}:null,
+      count:R.count,poolSize:R.pool.length,teams};
+  }
+};

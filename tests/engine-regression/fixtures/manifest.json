@@ -1,0 +1,131 @@
+{
+ "recordedAt": "2026-11-18T07:07:03.883Z",
+ "maps": [
+  {
+   "id": 15001389,
+   "name": "Ravenous Rapids",
+   "mode": "Gem Grab",
+   "stats": "gemGrab/ravenous-rapids",
+   "image": "https://brawltime.ninja/media/maps/15001389.png"
+  },
+  {
+   "id": 15001388,
+   "name": "Don't Leaf Me",
+   "mode": "Gem Grab",
+   "stats": "gemGrab/don-t-leaf-me",
+   "image": "https://brawltime.ninja/media/maps/15001388.png"
+  },
+  {
+   "id": 15001380,
+   "name": "Front Tackle",
+   "mode": "Brawl Ball",
+   "stats": "brawlBall/front-tackle",
+   "image": "https://brawltime.ninja/media/maps/15001380.png"
+  },
+  {
+   "id": 15001379,
+   "name": "Passing Through",
+   "mode": "Brawl Ball",
+   "stats": "brawlBall/passing-through",
+   "image": "https://brawltime.ninja/media/maps/15001379.png"
+  },
+  {
+   "id": 15001386,
+   "name": "On The Lookout",
+   "mode": "Heist",
+   "stats": "heist/on-the-lookout",
+   "image": "https://brawltime.ninja/media/maps/15001386.png"
+  },
+  {
+   "id": 15001385,
+   "name": "Fires Across",
+   "mode": "Heist",
+   "stats": "heist/fires-across",
+   "image": "https://brawltime.ninja/media/maps/15001385.png"
+  },
+  {
+   "id": 15001395,
+   "name": "Sudden Movements",
+   "mode": "Bounty",
+   "stats": "bounty/sudden-movements",
+   "image": "https://brawltime.ninja/media/maps/15001395.png"
+  },
+  {
+   "id": 15001394,
+   "name": "Eye Of The Beholder",
+   "mode": "Bounty",
+   "stats": "bounty/eye-of-the-beholder",
+   "image": "https://brawltime.ninja/media/maps/15001394.png"
+  },
+  {
+   "id": 15001383,
+   "name": "Sunken Harbor",
+   "mode": "Hot Zone",
+   "stats": "hotZone/sunken-harbor",
+   "image": "https://brawltime.ninja/media/maps/15001383.png"
+  },
+  {
+   "id": 15001382,
+   "name": "Sectioned",
+   "mode": "Hot Zone",
+   "stats": "hotZone/sectioned",
+   "image": "https://brawltime.ninja/media/maps/15001382.png"
+  },
+  {
+   "id": 15001392,
+   "name": "Pincer Movement",
+   "mode": "Knockout",
+   "stats": "knockout/pincer-movement",
+   "image": "https://brawltime.ninja/media/maps/15001392.png"
+  },
+  {
+   "id": 15001391,
+   "name": "Dry Run",
+   "mode": "Knockout",
+   "stats": "knockout/dry-run",
+   "image": "https://brawltime.ninja/media/maps/15001391.png"
+  },
+  {
+   "id": 15001315,
+   "name": "Stockpile Stadium",
+   "mode": "Brawl Ball 5v5",
+   "stats": "brawlBall5V5/stockpile-stadium",
+   "image": "https://brawltime.ninja/media/maps/15001315.png"
+  },
+  {
+   "id": 15001102,
+   "name": "Journey Of A Thousand Steps",
+   "mode": "Knockout 5v5",
+   "stats": "knockout5V5/journey-of-a-thousand-steps",
+   "image": "https://brawltime.ninja/media/maps/15001102.png"
+  },
+  {
+   "id": 15001308,
+   "name": "Rockwall Brawl",
+   "mode": "Duo Showdown",
+   "stats": "duoShowdown/rockwall-brawl",
+   "image": "https://brawltime.ninja/media/maps/15001308.png"
+  },
+  {
+   "id": 15001309,
+   "name": "Rockwall Brawl",
+   "mode": "Trio Showdown",
+   "stats": "trioShowdown/rockwall-brawl",
+   "image": "https://brawltime.ninja/media/maps/15001309.png"
+  },
+  {
+   "id": 15001307,
+   "name": "Rockwall Brawl",
+   "mode": "Solo Showdown",
+   "stats": "soloShowdown/rockwall-brawl",
+   "image": "https://brawltime.ninja/media/maps/15001307.png"
+  },
+  {
+   "id": 15001335,
+   "name": "False Sense Of Security",
+   "mode": "Duels",
+   "stats": "tagTeam/false-sense-of-security",
+   "image": "https://brawltime.ninja/media/maps/15001335.png"
+  }
+ ]
+}
