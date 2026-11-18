@@ -344,21 +344,86 @@ function solve(mp,dm){
   const rec=(start,cur)=>{if(cur.length===need){count++;out.push(teamEval([...lock,...cur],mp,dm,pool));return}for(let i=start;i<cand.length;i++){cur.push(cand[i]);rec(i+1,cur);cur.pop()}};
   rec(0,[]);
   out.sort((a,b)=>b.score-a.score);
-  // 다양성: 이미 고른 조합과 2명 이상 겹치면 건너뜀
-  const pick=[];for(const o of out){if(pick.every(p=>p.team.filter(x=>o.team.includes(x)).length<Math.max(2,mp.size-1)||mp.size===1))pick.push(o);if(pick.length>=6)break}
+  // 다양성: 고정 픽을 뺀 나머지 자리끼리 비교해, 이미 고른 조합과 너무 많이 겹치면 건너뜀
+  // (자유 슬롯 1~2개: 완전히 같은 조합만 제외 / 3개 이상: 자유 슬롯 수 - 1명 이상 겹치면 제외)
+  const limit=need<=2?need:need-1;
+  const free=o=>o.team.filter(x=>!lock.includes(x));
+  const pick=[];
+  for(const o of out){
+    const mine=free(o);
+    if(pick.every(p=>free(p).filter(x=>mine.includes(x)).length<limit))pick.push(o);
+    if(pick.length>=6)break;
+  }
   return {list:pick,count,pool};
 }
+
+/* 모드별 역할 후보. 각 역할에 어울리는 정도(f)를 계산해, 팀 전체 합이 가장 큰 배치를 고른다.
+   req: 그 모드에서 반드시 누군가 맡아야 하는 역할 */
+const POS_IS=(p,...xs)=>xs.includes(p.p)?1:0;
+const ROLE_POOL={
+  gem:[
+    {n:'젬 캐리어 (미드)',req:1,f:p=>p.hp*1.2+p.c+2*POS_IS(p,'M','S')-2*POS_IS(p,'A')},
+    {n:'사이드 레인 압박',f:p=>p.d+p.b+1.5*POS_IS(p,'B','M')},
+    {n:'반대 레인 견제',f:p=>p.r*1.2+1.5*POS_IS(p,'B','T')},
+    {n:'전방 탱커',f:p=>p.hp*1.5+3*POS_IS(p,'F')},
+    {n:'부쉬 견제·다이브',f:p=>p.m*1.2+3*POS_IS(p,'A')},
+    {n:'힐·버프 서포트',f:p=>p.h*1.5+3*POS_IS(p,'S')}],
+  ball:[
+    {n:'볼 캐리어',req:1,f:p=>p.hp+p.m*1.3+2*POS_IS(p,'F','A')},
+    {n:'벽 파괴·진입',f:p=>p.w*2.5+p.b*.5},
+    {n:'골 수비 앵커',f:p=>p.c*1.2+p.r*.6+p.hp*.5+1.5*POS_IS(p,'M','S')},
+    {n:'후방 견제',f:p=>p.r*1.2+1.5*POS_IS(p,'B','T')},
+    {n:'2차 진입',f:p=>p.m+p.b+2*POS_IS(p,'A')},
+    {n:'서포트',f:p=>p.h*1.5+3*POS_IS(p,'S')}],
+  heist:[
+    {n:'금고 다이브',req:1,f:p=>p.d*1.5+p.m+1.5*POS_IS(p,'A','F')},
+    {n:'수비 앵커',f:p=>p.c*1.2+p.hp*.6+1.5*POS_IS(p,'M','S')},
+    {n:'레인 압박',f:p=>p.r+p.d+1.5*POS_IS(p,'B','T')},
+    {n:'탱커 방어',f:p=>p.hp*1.5+3*POS_IS(p,'F')},
+    {n:'서포트',f:p=>p.h*1.5+3*POS_IS(p,'S')}],
+  pick:[
+    {n:'저격 앵커',f:p=>p.r*1.5+2*POS_IS(p,'B')},
+    {n:'견제·마무리',f:p=>p.b+p.d*.5+1.5*POS_IS(p,'M')},
+    {n:'안전한 백업',f:p=>p.h+p.r*.5+1.5*POS_IS(p,'S','M')},
+    {n:'벽 뒤 포격',f:p=>p.t*3+p.r*.5},
+    {n:'전방 압박',f:p=>p.hp*1.2+3*POS_IS(p,'F')},
+    {n:'측면 암살',f:p=>p.m*1.2+3*POS_IS(p,'A')}],
+  zone:[
+    {n:'존 앵커',req:1,f:(p,b)=>p.hp+(has('zone',b.name)?3:0)+POS_IS(p,'F')},
+    {n:'존 장악 딜러',f:p=>p.d*1.2+p.c},
+    {n:'외곽 견제',f:p=>p.r*1.2+1.5*POS_IS(p,'B','T')},
+    {n:'진입 차단',f:p=>p.c*1.2+p.m*.5+2*POS_IS(p,'A','F')},
+    {n:'서포트',f:p=>p.h*1.5+3*POS_IS(p,'S')}],
+  sd:[
+    {n:'생존 메인',f:p=>p.hp*1.2+p.h},
+    {n:'서브 캐리',f:p=>p.d+p.b},
+    {n:'견제',f:p=>p.r*1.2+p.c*.5}],
+  pve:[
+    {n:'메인 딜러',f:p=>p.d*1.5},
+    {n:'서브 딜러',f:p=>p.d+p.b*.8},
+    {n:'힐러',f:p=>p.h*2+3*POS_IS(p,'S')},
+    {n:'탱커',f:p=>p.hp*1.5+3*POS_IS(p,'F')}],
+};
 function assignRoles(team,mp){
-  const t=[...team];const roles=[];
-  if(mp.size===1)return [{b:t[0],role:'솔로 생존'}];
-  const score={
-    gem:b=>b.prof.hp*1.2+b.prof.c+(b.prof.p==='M'||b.prof.p==='S'?2:0)-(b.prof.p==='A'?2:0),
-    ball:b=>b.prof.hp+b.prof.m*1.3+(b.prof.p==='F'||b.prof.p==='A'?2:0),
-    heist:b=>b.prof.d*1.5+b.prof.m,
-    pick:b=>b.prof.r*1.5+(b.prof.p==='B'?2:0),
-    zone:b=>b.prof.hp+(has('zone',b.name)?3:0)}[mp.kind]||(b=>b.fit);
-  t.sort((a,b)=>score(b)-score(a));
-  return t.map((b,i)=>({b,role:mp.roles[i]||mp.roles[mp.roles.length-1]}));
+  if(mp.size===1)return [{b:team[0],role:'솔로 생존'}];
+  const pool=ROLE_POOL[mp.kind];
+  if(!pool||pool.length<team.length){
+    // 듀얼·기타 모드: 적합도 순서대로 모드 기본 역할 부여
+    const t=[...team].sort((a,b)=>b.fit-a.fit);
+    return t.map((b,i)=>({b,role:mp.roles[i]||mp.roles[mp.roles.length-1]}));
+  }
+  const S=team.map(b=>pool.map(r=>r.f(b.prof,b)));
+  let best=null,bestV=-Infinity;const used=new Array(pool.length).fill(false),cur=[];
+  const rec=i=>{
+    if(i===team.length){
+      if(pool.some((r,j)=>r.req&&!used[j]))return;
+      const v=cur.reduce((s,j,k)=>s+S[k][j],0);if(v>bestV){bestV=v;best=[...cur]}return;
+    }
+    for(let j=0;j<pool.length;j++){if(used[j])continue;used[j]=true;cur.push(j);rec(i+1);cur.pop();used[j]=false}
+  };
+  rec(0);
+  // 역할 후보 순서(주 역할 먼저)대로 카드 배치
+  return team.map((b,k)=>({b,role:pool[best[k]].n,o:best[k]})).sort((a,b)=>a.o-b.o);
 }
 function draftOrder(team,dm){
   // 블라인드 안전도: 메타 파워 + 다른 브롤러에게 덜 카운터당함
@@ -371,12 +436,31 @@ const $=s=>document.querySelector(s), el=(t,c,h)=>{const e=document.createElemen
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const ko=b=>KO[b.name]||b.name, mko=m=>MODE_KO[m]||m;
 
+/* API 응답 캐시: 성공한 응답(필요한 필드만)을 localStorage에 저장해 두고, API가 실패하면 마지막 저장본으로 띄운다.
+   저장소를 쓸 수 없는 환경(사생활 보호 모드 등)에서는 조용히 캐시 없이 동작한다. */
+const CACHE_KEY='draftroom.cache.v1';
+function readCache(){try{return JSON.parse(localStorage.getItem(CACHE_KEY))||null}catch(e){return null}}
+function writeCache(v){try{localStorage.setItem(CACHE_KEY,JSON.stringify(v))}catch(e){}}
+const slimMap=m=>({id:m.id,name:m.name,imageUrl:m.imageUrl,disabled:m.disabled,new:m.new,gameMode:{name:m.gameMode.name,imageUrl:m.gameMode.imageUrl,color:m.gameMode.color},environment:m.environment?{name:m.environment.name}:null});
+const slimBrawler=b=>({id:b.id,name:b.name,imageUrl2:b.imageUrl2,released:b.released,class:b.class?{name:b.class.name}:null,rarity:b.rarity?{color:b.rarity.color}:null});
+async function getJSON(url){const r=await fetch(url);if(!r.ok)throw new Error('HTTP '+r.status+' '+url);return r.json()}
+async function loadSources(){
+  const [m,b,s]=await Promise.allSettled([getJSON('https://api.brawlapi.com/v1/maps'),getJSON('https://api.brawlapi.com/v1/brawlers'),getJSON(BT+'/brawler-strength.json')]);
+  const cache=readCache();
+  const out={maps:null,brs:null,strength:null,cachedAt:null};
+  if(m.status==='fulfilled'&&b.status==='fulfilled'){out.maps=m.value.list.map(slimMap);out.brs=b.value.list.map(slimBrawler)}
+  else if(cache?.maps&&cache?.brs){out.maps=cache.maps;out.brs=cache.brs;out.cachedAt=cache.at}
+  else throw (m.status==='rejected'?m.reason:b.reason);
+  if(s.status==='fulfilled')out.strength=s.value;else if(cache?.strength){out.strength=cache.strength;out.cachedAt=out.cachedAt||cache.at}
+  if(!out.cachedAt)writeCache({at:Date.now(),maps:out.maps,brs:out.brs,strength:out.strength});
+  return out;
+}
+
 async function boot(){
   try{
-    const [mR,bR,sJ]=await Promise.all([fetch('https://api.brawlapi.com/v1/maps'),fetch('https://api.brawlapi.com/v1/brawlers'),
-      fetch(BT+'/brawler-strength.json').then(r=>r.ok?r.json():null).catch(()=>null)]);
-    if(!mR.ok||!bR.ok)throw new Error('HTTP '+mR.status+'/'+bR.status);
-    const maps=(await mR.json()).list, brs=(await bR.json()).list;
+    const src=await loadSources();
+    const maps=src.maps, brs=src.brs, sJ=src.strength;
+    DATA.cachedAt=src.cachedAt;
     DATA.maps=maps.map(m=>({id:m.id,name:m.name,img:m.imageUrl,disabled:m.disabled,isNew:m.new,mode:m.gameMode.name,modeImg:m.gameMode.imageUrl,color:m.gameMode.color,env:m.environment?.name}));
     // 모드 아이콘·색 (신규 모드는 비슷한 모드 것을 빌려 씀)
     const MI={};DATA.maps.forEach(m=>{MI[m.mode]=MI[m.mode]||{img:m.modeImg,color:m.color}});
@@ -400,7 +484,7 @@ async function boot(){
     DATA.byId={};DATA.brawlers.forEach(b=>DATA.byId[b.id]=b);
     DATA.modes={};DATA.maps.forEach(m=>{(DATA.modes[m.mode]=DATA.modes[m.mode]||{name:m.mode,img:m.modeImg,color:m.color,n:0,live:0}).n++;if(inPool(m))DATA.modes[m.mode].live++});
     const live=DATA.maps.filter(inPool).length;
-    $('#live').innerHTML=`<span class="chip"><span class="dot"></span>LIVE</span><span class="chip">${DATA.hasLive?'현재 맵 풀':'활성 맵'} <b>${live}</b> / 전체 <b>${DATA.maps.length}</b></span><span class="chip">브롤러 <b>${DATA.brawlers.length}</b></span>${DATA.window?`<span class="chip">실전 데이터 <b>${DATA.window}</b></span>`:'<span class="chip">실전 데이터 <b>연결 실패</b></span>'}<span class="chip">동기화 <b>${new Date().toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'})}</b></span>`;
+    $('#live').innerHTML=`${DATA.cachedAt?'<span class="chip">OFFLINE</span>':'<span class="chip"><span class="dot"></span>LIVE</span>'}<span class="chip">${DATA.hasLive?'현재 맵 풀':'활성 맵'} <b>${live}</b> / 전체 <b>${DATA.maps.length}</b></span><span class="chip">브롤러 <b>${DATA.brawlers.length}</b></span>${DATA.window?`<span class="chip">실전 데이터 <b>${DATA.window}</b></span>`:'<span class="chip">실전 데이터 <b>연결 실패</b></span>'}${DATA.cachedAt?`<span class="chip" style="color:var(--gold)">API 응답 없음 · 저장본 사용 <b>${new Date(DATA.cachedAt).toLocaleString('ko-KR',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'})}</b></span>`:`<span class="chip">동기화 <b>${new Date().toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'})}</b></span>`}`;
     renderShell();
     const first=DATA.maps.find(m=>inPool(m)&&RANKED.includes(m.mode))||DATA.maps[0];
     selectMap(first.id);
@@ -499,7 +583,7 @@ function runEngine(feat,anim){
   renderResult(R,mp,dm,feat);
 }
 function brCard(b,role,pk){
-  return `<div class="br" style="--rc:${b.rarity}">${pk?`<span class="pk">${pk}</span>`:''}<img src="${b.img}" alt="${esc(b.name)}" loading="lazy"><div class="n">${esc(ko(b))}</div><div class="en">${esc(b.name)} · ${POSN[b.prof.p]}</div><div class="role">${esc(role)}</div>${b.eff!=null?`<div class="eff ${b.eff>=0?'up':'dn'}">실전 ${b.eff>=0?'+':''}${(b.eff*100).toFixed(1)}%p</div>`:''}</div>`;
+  return `<div class="br" style="--rc:${b.rarity}">${pk?`<span class="pk">${pk}</span>`:''}<img src="${b.img}" alt="${esc(b.name)}" loading="lazy"><div class="n">${esc(ko(b))}</div><div class="en">${esc(b.name)} · ${POSN[b.prof.p]}${b.prof.auto?' · <span title="직접 입력한 프로필이 없어 클래스 기본값으로 계산">추정 프로필</span>':''}</div><div class="role">${esc(role)}</div>${b.eff!=null?`<div class="eff ${b.eff>=0?'up':'dn'}">실전 ${b.eff>=0?'+':''}${(b.eff*100).toFixed(1)}%p</div>`:''}</div>`;
 }
 const FLAB={stats:'실전 승률 데이터',mapN:'맵 적합도',range:'사거리 커버리지',balance:'역할 밸런스',cc:'군중 제어',sustain:'지속력 (체력·힐)',wall:'벽 대응 (파괴·투척)',bush:'부쉬 장악',counter:'카운터 내성',synergy:'시너지',meta:'메타 파워',enemy:'상대 픽 대응'};
 function why(best,mp,dm,feat){
@@ -529,7 +613,9 @@ function renderResult(R,mp,dm,feat){
   // 위협·밴 추천
   const threats=R.pool.filter(e=>!best.team.includes(e)).map(e=>({e,v:best.team.reduce((s,t)=>s+beats(e,t,dm)-beats(t,e,dm)*.5,0)+e.fit*.15})).sort((a,b)=>b.v-a.v).slice(0,3);
   const opts=R.pool.slice().sort((a,b)=>ko(a).localeCompare(ko(b),'ko')).map(b=>`<option value="${b.id}">${esc(ko(b))}</option>`).join('');
-  const optsAll=DATA.brawlers.slice().sort((a,b)=>ko(a).localeCompare(ko(b),'ko')).map(b=>`<option value="${b.id}">${esc(ko(b))}</option>`).join('');
+  // 상대 픽 후보: 밴·이미 고른 상대 제외 / 밴 후보: 이미 밴한 브롤러 제외
+  const optList=f=>DATA.brawlers.filter(f).sort((a,b)=>ko(a).localeCompare(ko(b),'ko')).map(b=>`<option value="${b.id}">${esc(ko(b))}</option>`).join('');
+  const optsEnemy=optList(b=>!STATE.ban.includes(b.id)&&!STATE.enemy.includes(b.id)), optsBan=optList(b=>!STATE.ban.includes(b.id));
   const pills=(arr,cls,empty)=>`<div class="slots">${arr.length?arr.map(id=>{const b=DATA.byId[id];return `<span class="pill ${cls}">${esc(ko(b))}<button data-rm="${cls}:${id}" aria-label="${esc(ko(b))} 제거">✕</button></span>`}).join(''):`<div class="empty">${empty}</div>`}</div>`;
   const mini=a=>`<div class="mini">${a.map(b=>`<span><img src="${b.img}" alt="">${esc(ko(b))}</span>`).join('')}</div>`;
   const mpN=mp.size;
@@ -550,22 +636,23 @@ function renderResult(R,mp,dm,feat){
   <div class="card"><h3>드래프트 시뮬레이터</h3>
     <div class="draft">
       <div class="box" style="--bc:var(--blue)"><h4>① 우리 팀 고정 픽 <span>${STATE.lock.length}/${mpN}</span></h4><select id="selL" aria-label="우리 팀 고정 픽 추가"><option value="">이미 고른 브롤러 추가…</option>${opts}</select>${pills(STATE.lock,'m','비어 있음 · 고정하면 이 브롤러를 중심으로 나머지를 채웁니다')}</div>
-      <div class="box" style="--bc:var(--red)"><h4>② 상대 팀 픽 <span>${STATE.enemy.length}/${mpN}</span></h4><select id="selE" aria-label="상대 팀 픽 추가"><option value="">상대 브롤러 추가…</option>${optsAll}</select>${pills(STATE.enemy,'e','비어 있음 · 넣으면 카운터 위주로 다시 계산합니다')}</div>
-      <div class="box" style="--bc:#8a86b8"><h4>③ 밴 (양 팀 사용 불가) <span>${STATE.ban.length}</span></h4><select id="selB" aria-label="밴 추가"><option value="">밴할 브롤러 추가…</option>${optsAll}</select>${pills(STATE.ban,'x','비어 있음 · 밴한 브롤러는 추천에서 빠집니다')}</div>
+      <div class="box" style="--bc:var(--red)"><h4>② 상대 팀 픽 <span>${STATE.enemy.length}/${mpN}</span></h4><select id="selE" aria-label="상대 팀 픽 추가"><option value="">상대 브롤러 추가…</option>${optsEnemy}</select>${pills(STATE.enemy,'e','비어 있음 · 넣으면 카운터 위주로 다시 계산합니다')}</div>
+      <div class="box" style="--bc:#8a86b8"><h4>③ 밴 (양 팀 사용 불가) <span>${STATE.ban.length}</span></h4><select id="selB" aria-label="밴 추가"><option value="">밴할 브롤러 추가…</option>${optsBan}</select>${pills(STATE.ban,'x','비어 있음 · 밴한 브롤러는 추천에서 빠집니다')}</div>
     </div></div>
 
   <div class="card"><h3>대안 조합</h3><div class="alts">${R.list.slice(1).map((o,i)=>`<button class="alt" data-alt="${i+1}"><span class="rk">#${i+2}</span><span class="ps">${o.team.map(b=>`<img src="${b.img}" alt="${esc(b.name)}" title="${esc(ko(b))}">`).join('')}<span>${o.team.map(ko).map(esc).join(' · ')}</span><span class="ar">${esc(archetype(o.team))} · 맵 ${pct(o.f.mapN)} · 밸런스 ${pct(o.f.balance)} · 내성 ${pct(o.f.counter)}</span></span><span class="sc">${o.score}</span></button>`).join('')}</div>
   <div class="note">대안 조합을 누르면 위 메인 카드로 올립니다.</div></div>
 
-  <div class="card"><h3>이 맵 개인 적합도 TOP 12</h3>${mini(R.pool.slice(0,12))}<div class="note">맵 수요 벡터 × 모드 가중치 × 메타 파워${STATE.stats?' + 실전 승률 효과':''}로 산출. 프로필이 없는 신규 브롤러는 클래스 기본값으로 계산합니다.</div></div>`;
+  <div class="card"><h3>이 맵 개인 적합도 TOP 12</h3>${mini(R.pool.slice(0,12))}<div class="note">맵 수요 벡터 × 모드 가중치 × 메타 파워${STATE.stats?' + 실전 승률 효과':''}로 산출. 프로필이 없는 신규 브롤러는 클래스 기본값으로 계산합니다.${(()=>{const au=DATA.brawlers.filter(b=>b.prof.auto);return au.length?` (현재 ${au.length}명: ${au.map(b=>esc(ko(b))).join(', ')})`:''})()}</div></div>`;
   // 애니메이션
   requestAnimationFrame(()=>{document.querySelectorAll('.bar i').forEach(i=>i.style.width=i.dataset.w+'%')});
   const big=res.querySelector('.big');const to=+big.dataset.count;let v=0;const ct=()=>{v=Math.min(to,v+Math.ceil((to-v)/8)||1);big.firstChild.nodeValue=v;if(v<to)requestAnimationFrame(ct)};ct();
   res.querySelectorAll('.br').forEach(c=>{c.onmousemove=e=>{const r=c.getBoundingClientRect();c.style.transform=`perspective(500px) rotateY(${(e.clientX-r.left)/r.width*20-10}deg) rotateX(${10-(e.clientY-r.top)/r.height*20}deg)`};c.onmouseleave=()=>c.style.transform=''});
   const re=()=>runEngine(FEAT_CACHE[STATE.map.id],false);
-  $('#selE').onchange=e=>{const id=+e.target.value;if(id&&!STATE.enemy.includes(id)&&STATE.enemy.length<mpN){STATE.enemy.push(id);STATE.lock=STATE.lock.filter(x=>x!==id)}re()};
+  $('#selE').onchange=e=>{const id=+e.target.value;if(id&&!STATE.ban.includes(id)&&!STATE.enemy.includes(id)&&STATE.enemy.length<mpN){STATE.enemy.push(id);STATE.lock=STATE.lock.filter(x=>x!==id)}re()};
   $('#selL').onchange=e=>{const id=+e.target.value;if(id&&!STATE.lock.includes(id)&&STATE.lock.length<mpN)STATE.lock.push(id);re()};
-  $('#selB').onchange=e=>{const id=+e.target.value;if(id&&!STATE.ban.includes(id)){STATE.ban.push(id);STATE.lock=STATE.lock.filter(x=>x!==id)}re()};
+  // 밴은 양 팀 모두 사용 불가 → 우리 고정 픽과 상대 픽에서도 뺀다
+  $('#selB').onchange=e=>{const id=+e.target.value;if(id&&!STATE.ban.includes(id)){STATE.ban.push(id);STATE.lock=STATE.lock.filter(x=>x!==id);STATE.enemy=STATE.enemy.filter(x=>x!==id)}re()};
   res.querySelectorAll('[data-rm]').forEach(b=>b.onclick=()=>{const [c,id]=b.dataset.rm.split(':');const k={e:'enemy',m:'lock',x:'ban'}[c];STATE[k]=STATE[k].filter(x=>x!==+id);re()});
   res.querySelectorAll('[data-alt]').forEach(b=>b.onclick=()=>{const i=+b.dataset.alt;const L=R.list.slice();[L[0],L[i]]=[L[i],L[0]];renderResult({...R,list:L},mp,dm,feat);res.scrollIntoView({behavior:'smooth'})});
 }
