@@ -86,6 +86,8 @@ struct HomeView: View {
             if let s = vm.precomputeLine { Text(s) }
             if let s = vm.extensionActivityLine { Text(s) }
             if activity.availability == .disabledByUser { Text("Live Activity 가 꺼져 있습니다: 설정 > Brawl Assistant > 실시간 현황").foregroundStyle(Theme.error) }
+            else if activity.isRunning { Text("Live Activity 실행 중 · Dynamic Island 는 이 앱이 화면에 없을 때(홈 화면·게임 중) 표시됩니다").foregroundStyle(Theme.accent) }
+            if let e = activity.lastError { Text(e).foregroundStyle(Theme.error) }
             Text("비공식 팬메이드 도구 · 데이터: Brawlify, BrawlTime")
         }
         .font(.caption2).foregroundStyle(Theme.secondaryText)
