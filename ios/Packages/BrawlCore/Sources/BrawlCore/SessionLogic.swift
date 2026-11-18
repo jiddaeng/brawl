@@ -80,7 +80,11 @@ public struct SessionReducer {
 
 /// Dynamic Island / 잠금 화면에 보여 줄 값 (ActivityKit ContentState 로 그대로 쓴다. 4KB 제한 안에서 작게 유지)
 public struct ActivityDisplayState: Codable, Hashable, Sendable {
-    public struct Member: Codable, Hashable, Sendable { public var id: Int; public var name: String }
+    public struct Member: Codable, Hashable, Sendable {
+        public var id: Int
+        public var name: String
+        public init(id: Int, name: String) { self.id = id; self.name = name }
+    }
     public var status: AnalysisStatus
     public var mapName: String?
     public var modeName: String?
