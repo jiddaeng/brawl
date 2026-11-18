@@ -38,6 +38,9 @@ final class AppState: ObservableObject {
 
     init() {
         store = AppGroup.store
+        #if DEBUG
+        if loadDemoIfRequested() { return }
+        #endif
         guard let store else {
             dataStatus = .failed("App Group 컨테이너를 열 수 없습니다. 서명 설정의 App Groups 를 확인하세요.")
             return
@@ -218,6 +221,34 @@ final class AppState: ObservableObject {
         if let r = lastResult, r.map.id == id, usePickedBrawlers { return r }
         return store?.recommendation(for: id)
     }
+
+    #if DEBUG
+    /// 디자인 확인용 데모 모드 (UI 테스트·스크린샷). 환경 변수 BRAWL_DEMO_RESULT 에 엔진 결과 JSON 경로를 주면
+    /// 네트워크·엔진 없이 그 결과를 '맵 직접 선택' 결과로 띄우고, BRAWL_DEMO_LIVE=1 이면 Live Activity 도 시작한다.
+    static var isDemo: Bool { ProcessInfo.processInfo.environment["BRAWL_DEMO_RESULT"] != nil }
+
+    private func loadDemoIfRequested() -> Bool {
+        let env = ProcessInfo.processInfo.environment
+        guard let path = env["BRAWL_DEMO_RESULT"], let data = FileManager.default.contents(atPath: path),
+              let r = try? JSONDecoder().decode(EngineResult.self, from: data), let rec = Recommendation(result: r) else { return false }
+        manualResult = r
+        manualRecommendation = rec
+        dataStatus = .ready(Date())
+        UserDefaults.standard.set(true, forKey: "onboarding.done")
+        Task {
+            // Live Activity 용 초상화를 App Group 에 넣어 둔다 (서명 없이 실행되면 App Group 이 없어 건너뜀)
+            if let store {
+                for b in rec.brawlers {
+                    guard let s = b.img, let u = URL(string: s), let (d, _) = try? await URLSession.shared.data(from: u),
+                          let png = PixelDecoder.thumbnailPNG(d, side: 96) else { continue }
+                    try? png.write(to: store.portraitURL(brawlerID: b.id), options: .atomic)
+                }
+            }
+            if env["BRAWL_DEMO_LIVE"] == "1" { liveActivity.start(with: ActivityDisplayState(manual: rec)) }
+        }
+        return true
+    }
+    #endif
 
     private func writeSession(_ s: AnalysisSession) {
         session = s

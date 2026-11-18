@@ -61,3 +61,48 @@ jobs:
         with:
           name: ios-build-logs
           path: ios/*.log
+
+  design-snapshots:
+    name: 디자인 스크린샷 (시뮬레이터, 데모 데이터)
+    runs-on: macos-15
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - name: 가장 최신 Xcode 선택
+        run: |
+          x=$(ls -d /Applications/Xcode_26*.app 2>/dev/null | sort -V | tail -1)
+          if [ -n "$x" ]; then sudo xcode-select -s "$x"; fi
+          xcodebuild -version
+      - run: brew install xcodegen
+      - name: xcodegen
+        working-directory: ios
+        run: xcodegen generate
+      - name: Dynamic Island 가 있는 iPhone 시뮬레이터 고르기
+        id: sim
+        run: |
+          udid=$(xcrun simctl list devices available -j | python3 -c "
+          import json,sys,re
+          d=json.load(sys.stdin)['devices']
+          c=[(rt,x) for rt,xs in d.items() if 'iOS' in rt for x in xs if re.search(r'iPhone 1[5-9] Pro$', x['name'])]
+          c.sort(key=lambda t:(t[0],t[1]['name']))
+          rt,x=c[-1]; print(x['udid']); print(rt, x['name'], file=sys.stderr)")
+          echo "udid=$udid" >> "$GITHUB_OUTPUT"
+          xcrun simctl boot "$udid" || true
+          xcrun simctl bootstatus "$udid" -b
+      - name: UI 테스트 (스크린샷)
+        working-directory: ios
+        env:
+          TEST_RUNNER_SNAPSHOT_DIR: ${{ github.workspace }}/snapshots
+        run: |
+          set -o pipefail
+          xcodebuild test -project BrawlAssistant.xcodeproj -scheme DesignSnapshots \
+            -destination "id=${{ steps.sim.outputs.udid }}" \
+            CODE_SIGN_IDENTITY=- CODE_SIGN_STYLE=Manual DEVELOPMENT_TEAM= 2>&1 | tee ui-test.log | grep -E "error:|Test Case|TEST (SUCCEEDED|FAILED)|BUILD FAILED" || true
+          ls -la ${{ github.workspace }}/snapshots || true
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: design-snapshots
+          path: |
+            snapshots
+            ios/ui-test.log
