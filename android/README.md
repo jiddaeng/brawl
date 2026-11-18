@@ -57,5 +57,6 @@ cd android && ./gradlew :core:test :app:assembleDebug
 | Android 호출 경로(조각 전송·base64 픽셀)로 웹 정답 비교, 실행기 Node | 517/517 조합 일치 |
 | 데이터 받기 → 맵 이미지 분석 → 통계 → 추천 → 저장 (녹화본) | 18개 맵 기본 추천이 웹과 일치 |
 | `assembleDebug`, `lintDebug` | 빌드 성공, lint 경고 0 |
-| 에뮬레이터 계측 테스트 (실제 JavaScriptSandbox·BitmapFactory) | CI `Android / device-tests`에서 실행 |
+| 에뮬레이터 계측 테스트 (Android 14, 실제 JavaScriptSandbox·BitmapFactory, GitHub Actions) | 2개 통과 (건너뜀 0): 웹 정답 517개 조합 일치, 맵 18개 픽셀 분석 일치 |
+| GitHub Actions 빌드 (core 테스트·lint·APK) | 통과 |
 | 실제 기기: 화면 공유, OCR 정확도, 게임 중 알림 표시, Live Updates 칩 | 미확인 |
