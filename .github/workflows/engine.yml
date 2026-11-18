@@ -1,0 +1,26 @@
+name: Engine regression
+on:
+  push:
+    branches: ['main', 'claude/**']
+    paths: ['index.html', 'engine/**', 'tests/**', '.github/workflows/engine.yml']
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  regression:
+    name: 웹 결과 = 엔진 결과 (Chromium · JavaScriptCore · V8)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }   # 분리 전 기준 커밋(4b9f7f5)과 비교
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+      - run: sudo apt-get update && sudo apt-get install -y libjavascriptcoregtk-bin
+      - run: npm install --no-save playwright@1.55.0 && npx playwright install --with-deps chromium
+      - name: 분리 전 웹 vs 현재 웹 + golden 재생성
+        run: node tests/engine-regression/web-golden.cjs
+      - name: golden 이 커밋된 것과 같은지
+        run: git diff --exit-code tests/engine-regression/golden.json
+      - run: node tests/engine-regression/compare.cjs
+      - run: node tests/engine-regression/compare.cjs --node

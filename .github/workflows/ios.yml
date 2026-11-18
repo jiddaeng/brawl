@@ -1,0 +1,61 @@
+name: iOS
+on:
+  push:
+    branches: ['main', 'claude/**']
+    paths: ['ios/**', 'engine/**', 'tests/engine-regression/**', '.github/workflows/ios.yml']
+  workflow_dispatch:
+
+concurrency:
+  group: ios-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  core-tests:
+    name: BrawlCore + 엔진 일치 테스트 (macOS JavaScriptCore, JIT 끔)
+    runs-on: macos-15
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - run: xcodebuild -version && swift --version
+      - name: swift test
+        working-directory: ios/Packages/BrawlCore
+        env:
+          JSC_useJIT: "false"
+        run: swift test 2>&1 | tee swift-test.log
+      - name: iOS 엔진 결과를 compare.cjs 로도 확인
+        run: |
+          f="$(find "$TMPDIR" /tmp -name brawl-engine-results.json 2>/dev/null | head -1)"
+          echo "results: $f"
+          test -n "$f" && node tests/engine-regression/compare.cjs --results "$f"
+
+  build:
+    name: Xcode 빌드 (앱 + 위젯 확장 + 방송 확장, 시뮬레이터)
+    runs-on: macos-15
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - run: brew install xcodegen
+      - name: xcodegen
+        working-directory: ios
+        run: xcodegen generate
+      - name: xcodebuild build
+        working-directory: ios
+        run: |
+          set -o pipefail
+          xcodebuild -project BrawlAssistant.xcodeproj -scheme BrawlAssistant \
+            -destination 'generic/platform=iOS Simulator' -configuration Debug \
+            CODE_SIGNING_ALLOWED=NO build 2>&1 | tee build.log | grep -E "error:|warning: .*BrawlAssistant/|BUILD (SUCCEEDED|FAILED)" || true
+          grep -q "BUILD SUCCEEDED" build.log
+      - name: 기기용 빌드 (서명 없이 컴파일만)
+        working-directory: ios
+        run: |
+          set -o pipefail
+          xcodebuild -project BrawlAssistant.xcodeproj -scheme BrawlAssistant \
+            -destination 'generic/platform=iOS' -configuration Release \
+            CODE_SIGNING_ALLOWED=NO build 2>&1 | tee build-device.log | grep -E "error:|BUILD (SUCCEEDED|FAILED)" || true
+          grep -q "BUILD SUCCEEDED" build-device.log
+      - if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-build-logs
+          path: ios/*.log
