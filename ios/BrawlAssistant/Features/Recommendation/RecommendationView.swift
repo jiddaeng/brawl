@@ -26,7 +26,7 @@ struct RecommendationView: View {
             HStack(spacing: 28) {
                 Metric(title: "종합 점수", value: "\(recommendation.score)", suffix: "/100", highlight: true)
                 Metric(title: "추정 승률", value: recommendation.estimatedWinRate, suffix: "%")
-                if let r = result { Metric(title: "시뮬레이션", value: r.count.formatted(), suffix: "") }
+                if let r = result { Metric(title: "시뮬레이션", value: r.countText, suffix: "") }
             }
             Text("종합 점수·추정 승률은 Draft Room 엔진의 계산값이며 공식 통계가 아닙니다.")
                 .font(.caption2).foregroundStyle(Theme.secondaryText)
@@ -69,9 +69,9 @@ struct BrawlerCell: View {
             if let role = member.role { Text(role).font(.caption2).foregroundStyle(Theme.secondaryText).lineLimit(1).minimumScaleFactor(0.7) }
             HStack(spacing: 4) {
                 if let p = member.pick { Text("\(p)픽").font(.caption2.monospacedDigit()).foregroundStyle(Theme.secondaryText) }
-                if let e = member.eff {
-                    Text("\(e >= 0 ? "+" : "")\(String(format: "%.1f", e * 100))%p")
-                        .font(.caption2.monospacedDigit()).foregroundStyle(e >= 0 ? Theme.positive : Theme.error)
+                if let e = member.eff, let text = member.effPct {
+                    // 표시 문자열은 엔진(웹과 같은 toFixed) 값 그대로
+                    Text("\(text)%p").font(.caption2.monospacedDigit()).foregroundStyle(e >= 0 ? Theme.positive : Theme.error)
                 }
             }
             if member.estimatedProfile { Text("추정 프로필").font(.caption2).foregroundStyle(Theme.secondaryText) }

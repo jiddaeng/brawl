@@ -272,7 +272,7 @@ function why(best,mp,dm,feat){
   const t=best.team,P=t.map(b=>b.prof),out=[];
   const st=STATE.stats;
   if(st){const top=DATA.pool.filter(b=>b.eff!=null).sort((a,b)=>b.eff-a.eff).slice(0,3);
-    out.push(`최근 4주 ${esc(st.preset)} ${st.battles.toLocaleString()}판 기준, 이 맵에서 승률 효과가 가장 높은 브롤러는 ${top.map(b=>`${esc(ko(b))}(+${(b.eff*100).toFixed(1)}%p)`).join(', ')}입니다. 조합 평균은 ${best.f.avgEff>=0?'+':''}${(best.f.avgEff*100).toFixed(1)}%p예요.`)}
+    out.push(`최근 4주 ${esc(st.preset)} ${st.battles.toLocaleString('ko-KR')}판 기준, 이 맵에서 승률 효과가 가장 높은 브롤러는 ${top.map(b=>`${esc(ko(b))}(+${(b.eff*100).toFixed(1)}%p)`).join(', ')}입니다. 조합 평균은 ${best.f.avgEff>=0?'+':''}${(best.f.avgEff*100).toFixed(1)}%p예요.`)}
   if(dm.range>.55)out.push(`시야선이 길게 열린 맵(${pct(feat.sight)}%)이라 장거리 견제 브롤러의 가치가 높습니다.`);
   else if(dm.range<.35)out.push(`시야가 자주 끊기는 맵이라 저격보다 근·중거리 교전이 잦습니다.`);
   if(dm.throw>.5)out.push(`벽 밀도가 높아(${pct(feat.wall)}%) 벽 뒤에서 포격하는 투척형이 안전하게 딜을 넣습니다.${P.some(p=>p.t)?' 조합에 투척형을 포함했습니다.':''}`);
@@ -350,12 +350,16 @@ var DraftEngine={
     STATE.map=m;STATE.stats=opt.stats||null;STATE.lock=(opt.lock||[]).slice();STATE.enemy=(opt.enemy||[]).slice();STATE.ban=(opt.ban||[]).slice();
     const mp=modeProfile(m.mode),dm=demands(feat,mp);
     const R=solve(mp,dm);
-    const card=b=>({id:b.id,name:b.name,ko:ko(b),img:b.img,position:b.prof.p,positionKo:POSN[b.prof.p],estimatedProfile:!!b.prof.auto,eff:b.eff==null?null:b.eff});
+    // 화면 표시 문자열도 웹(brCard·결과 카드)과 같은 식으로 여기서 만든다. 호스트(iOS·Android)는 다시 포맷하지 않는다
+    const card=b=>({id:b.id,name:b.name,ko:ko(b),img:b.img,position:b.prof.p,positionKo:POSN[b.prof.p],estimatedProfile:!!b.prof.auto,eff:b.eff==null?null:b.eff,
+      effPct:b.eff==null?null:`${b.eff>=0?'+':''}${(b.eff*100).toFixed(1)}`});
     const teams=R.list.map((o,i)=>{
       const roles=assignRoles(o.team,mp),order=draftOrder(o.team,dm);
       return {rank:i+1,ids:o.team.map(b=>b.id),score:o.score,estimatedWinRate:estWinRate(o),archetype:archetype(o.team),f:o.f,
+        counterPercent:pct(o.f.counter),
+        summary:`${archetype(o.team)} · 맵 ${pct(o.f.mapN)} · 밸런스 ${pct(o.f.balance)} · 내성 ${pct(o.f.counter)}`,
         members:roles.map(r=>({...card(r.b),role:r.role,pick:mp.size>1?order.indexOf(r.b)+1:null})),
-        factors:factorKeys(mp).map(k=>({key:k,label:FLAB[k],value:k==='mapN'?o.f.mapN:o.f[k]})),
+        factors:factorKeys(mp).map(k=>{const v=k==='mapN'?o.f.mapN:o.f[k];return {key:k,label:FLAB[k],value:v,percent:pct(v)}}),
         reasons:why(o,mp,dm,feat),
         threats:banThreats(R,o,dm).map(x=>card(x.e))};
     });
@@ -364,6 +368,6 @@ var DraftEngine={
       map:{id:m.id,name:m.name,ko:mapKo(m),mode:m.mode,modeKo:mko(m.mode),kind:mp.kind,size:mp.size,live:!!m.live},
       feat:featSummary(feat),demands:dm,
       stats:st?{preset:st.preset,battles:st.battles,from:st.from,until:st.until}:null,
-      count:R.count,poolSize:R.pool.length,teams};
+      count:R.count,countText:R.count.toLocaleString('ko-KR'),poolSize:R.pool.length,teams};
   }
 };

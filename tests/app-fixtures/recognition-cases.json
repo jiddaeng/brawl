@@ -1,0 +1,400 @@
+{
+ "description": "화면 인식 공유 테스트 벡터. iOS BrawlCore(SharedVectorTests)와 Android core(SharedVectorTest)가 같은 결과를 내야 한다. catalog.json 기준.",
+ "matcher": [
+  {
+   "name": "한국어 맵 이름",
+   "lines": [
+    {
+     "text": "기습적 움직임",
+     "confidence": 0.9,
+     "x": 0.5,
+     "y": 0.1
+    }
+   ],
+   "expect": {
+    "map": 15001395,
+    "mode": "Bounty"
+   }
+  },
+  {
+   "name": "영문 + OCR 오타",
+   "lines": [
+    {
+     "text": "SUDDEN MOVERNENTS",
+     "confidence": 0.9,
+     "x": 0.5,
+     "y": 0.1
+    }
+   ],
+   "expect": {
+    "map": 15001395,
+    "mode": "Bounty"
+   }
+  },
+  {
+   "name": "긴 줄 안의 맵 이름 + 모드 줄",
+   "lines": [
+    {
+     "text": "바운티",
+     "confidence": 0.9,
+     "x": 0.5,
+     "y": 0.1
+    },
+    {
+     "text": "기습적 움직임 - 랭크전",
+     "confidence": 0.9,
+     "x": 0.5,
+     "y": 0.1
+    }
+   ],
+   "expect": {
+    "map": 15001395,
+    "mode": "Bounty"
+   }
+  },
+  {
+   "name": "영문 모드 + 영문 맵",
+   "lines": [
+    {
+     "text": "GEM GRAB",
+     "confidence": 0.9,
+     "x": 0.5,
+     "y": 0.1
+    },
+    {
+     "text": "Don't Leaf Me",
+     "confidence": 0.9,
+     "x": 0.5,
+     "y": 0.1
+    }
+   ],
+   "expect": {
+    "map": 15001388,
+    "mode": "Gem Grab"
+   }
+  },
+  {
+   "name": "여러 모드에 있는 맵: 모드 없음",
+   "lines": [
+    {
+     "text": "바위 장벽 전투",
+     "confidence": 0.9,
+     "x": 0.5,
+     "y": 0.1
+    }
+   ],
+   "expect": {
+    "map": null,
+    "ambiguousModes": [
+     "Duo Showdown",
+     "Solo Showdown",
+     "Trio Showdown"
+    ]
+   }
+  },
+  {
+   "name": "여러 모드에 있는 맵: 모드 있음",
+   "lines": [
+    {
+     "text": "듀오 쇼다운",
+     "confidence": 0.9,
+     "x": 0.5,
+     "y": 0.1
+    },
+    {
+     "text": "바위 장벽 전투",
+     "confidence": 0.9,
+     "x": 0.5,
+     "y": 0.1
+    }
+   ],
+   "expect": {
+    "map": 15001308,
+    "mode": "Duo Showdown"
+   }
+  },
+  {
+   "name": "관계없는 글자",
+   "lines": [
+    {
+     "text": "플레이",
+     "confidence": 0.9,
+     "x": 0.5,
+     "y": 0.1
+    },
+    {
+     "text": "트로피 로드",
+     "confidence": 0.9,
+     "x": 0.5,
+     "y": 0.1
+    },
+    {
+     "text": "12:45",
+     "confidence": 0.9,
+     "x": 0.5,
+     "y": 0.1
+    },
+    {
+     "text": "친구 초대",
+     "confidence": 0.9,
+     "x": 0.5,
+     "y": 0.1
+    }
+   ],
+   "expect": {
+    "map": null,
+    "ambiguousModes": []
+   }
+  },
+  {
+   "name": "신뢰도 낮은 줄 무시",
+   "lines": [
+    {
+     "text": "기습적 움직임",
+     "confidence": 0.1,
+     "x": 0.5,
+     "y": 0.1
+    }
+   ],
+   "expect": {
+    "map": null,
+    "ambiguousModes": []
+   }
+  },
+  {
+   "name": "짧은 브롤러 이름은 정확히 같을 때만",
+   "lines": [
+    {
+     "text": "불",
+     "confidence": 0.9,
+     "x": 0.2,
+     "y": 0.1
+    },
+    {
+     "text": "보니",
+     "confidence": 0.9,
+     "x": 0.8,
+     "y": 0.1
+    },
+    {
+     "text": "보물 상자",
+     "confidence": 0.9,
+     "x": 0.8,
+     "y": 0.1
+    }
+   ],
+   "expect": {
+    "picks": [
+     {
+      "brawler": "Bull",
+      "side": "ally"
+     },
+     {
+      "brawler": "Bonnie",
+      "side": "enemy"
+     }
+    ]
+   }
+  }
+ ],
+ "stabilizer": [
+  {
+   "name": "두 번 연속 일치해야 확정, 한 번 오인식은 무시",
+   "config": {
+    "requiredAgreement": 2,
+    "agreementWindow": 10,
+    "failAfter": 25
+   },
+   "steps": [
+    {
+     "t": 1,
+     "lines": [
+      {
+       "text": "기습적 움직임",
+       "confidence": 0.9,
+       "x": 0.5,
+       "y": 0.1
+      }
+     ],
+     "expect": "none"
+    },
+    {
+     "t": 2.5,
+     "lines": [
+      {
+       "text": "기습적 움직임",
+       "confidence": 0.9,
+       "x": 0.5,
+       "y": 0.1
+      }
+     ],
+     "expect": "recognized:15001395"
+    },
+    {
+     "t": 4,
+     "lines": [
+      {
+       "text": "작별 인사",
+       "confidence": 0.9,
+       "x": 0.5,
+       "y": 0.1
+      }
+     ],
+     "expect": "none"
+    },
+    {
+     "t": 5,
+     "lines": [
+      {
+       "text": "기습적 움직임",
+       "confidence": 0.9,
+       "x": 0.5,
+       "y": 0.1
+      }
+     ],
+     "expect": "none"
+    },
+    {
+     "t": 6,
+     "lines": [
+      {
+       "text": "작별 인사",
+       "confidence": 0.9,
+       "x": 0.5,
+       "y": 0.1
+      }
+     ],
+     "expect": "none"
+    },
+    {
+     "t": 7,
+     "lines": [
+      {
+       "text": "작별 인사",
+       "confidence": 0.9,
+       "x": 0.5,
+       "y": 0.1
+      }
+     ],
+     "expect": "recognized:15001388"
+    }
+   ]
+  },
+  {
+   "name": "너무 떨어진 두 프레임은 합치지 않음",
+   "config": {
+    "requiredAgreement": 2,
+    "agreementWindow": 10,
+    "failAfter": 25
+   },
+   "steps": [
+    {
+     "t": 0,
+     "lines": [
+      {
+       "text": "기습적 움직임",
+       "confidence": 0.9,
+       "x": 0.5,
+       "y": 0.1
+      }
+     ],
+     "expect": "none"
+    },
+    {
+     "t": 30,
+     "lines": [
+      {
+       "text": "기습적 움직임",
+       "confidence": 0.9,
+       "x": 0.5,
+       "y": 0.1
+      }
+     ],
+     "expect": "none"
+    },
+    {
+     "t": 31,
+     "lines": [
+      {
+       "text": "기습적 움직임",
+       "confidence": 0.9,
+       "x": 0.5,
+       "y": 0.1
+      }
+     ],
+     "expect": "recognized:15001395"
+    }
+   ]
+  },
+  {
+   "name": "실패는 한 번만, 모드 모호",
+   "config": {
+    "requiredAgreement": 2,
+    "agreementWindow": 10,
+    "failAfter": 25
+   },
+   "steps": [
+    {
+     "t": 10,
+     "lines": [
+      {
+       "text": "플레이",
+       "confidence": 0.9,
+       "x": 0.5,
+       "y": 0.1
+      }
+     ],
+     "expect": "none"
+    },
+    {
+     "t": 26,
+     "lines": [
+      {
+       "text": "플레이",
+       "confidence": 0.9,
+       "x": 0.5,
+       "y": 0.1
+      }
+     ],
+     "expect": "failed"
+    },
+    {
+     "t": 40,
+     "lines": [
+      {
+       "text": "플레이",
+       "confidence": 0.9,
+       "x": 0.5,
+       "y": 0.1
+      }
+     ],
+     "expect": "none"
+    },
+    {
+     "t": 41,
+     "lines": [
+      {
+       "text": "바위 장벽 전투",
+       "confidence": 0.9,
+       "x": 0.5,
+       "y": 0.1
+      }
+     ],
+     "expect": "none"
+    },
+    {
+     "t": 42,
+     "lines": [
+      {
+       "text": "바위 장벽 전투",
+       "confidence": 0.9,
+       "x": 0.5,
+       "y": 0.1
+      }
+     ],
+     "expect": "ambiguous:3"
+    }
+   ]
+  }
+ ]
+}

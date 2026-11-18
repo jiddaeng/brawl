@@ -21,8 +21,7 @@ else if (process.argv.includes('--node')) {
   results = o.results; label = 'JavaScriptCore (JIT 끔)'; timing = ` · 전체 ${o.totalMs}ms, 시나리오 최대 ${o.maxMs}ms`;
 }
 
-// 웹 결과 카드와 같은 모양으로 변환 (표시 문구는 index.html renderResult 와 같다)
-const pct = v => Math.round(v * 100);
+// 웹 결과 카드와 같은 모양으로 변환. 숫자 표시 문자열은 엔진이 준 값(effPct·percent·summary·countText)을 그대로 쓴다
 const unesc = s => s.replace(/&quot;/g, '"').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&');
 function view(R, k) {
   const L = R.teams.slice(); [L[0], L[k]] = [L[k], L[0]];
@@ -31,14 +30,14 @@ function view(R, k) {
   const ordered = T.members.filter(m => m.pick).sort((a, b) => a.pick - b.pick);
   return {
     archetype: T.archetype,
-    members: T.members.map(m => ({ name: m.name, role: m.role, pick: m.pick ? m.pick + '픽' : null, eff: m.eff == null ? null : `실전 ${m.eff >= 0 ? '+' : ''}${(m.eff * 100).toFixed(1)}%p` })),
+    members: T.members.map(m => ({ name: m.name, role: m.role, pick: m.pick ? m.pick + '픽' : null, eff: m.effPct == null ? null : `실전 ${m.effPct}%p` })),
     score: T.score,
-    kpi: [T.estimatedWinRate + '%', R.count.toLocaleString(), String(pct(T.f.counter))],
-    bars: T.factors.map(f => [f.label, pct(f.value)]),
+    kpi: [T.estimatedWinRate + '%', R.countText, String(T.counterPercent)],
+    bars: T.factors.map(f => [f.label, f.percent]),
     reasons: T.reasons.map(unesc),
     order: size > 1 ? ordered.map((m, i) => `${i + 1}픽 ${m.ko} — ${i === 0 ? '카운터가 적어 블라인드 픽으로 안전' : i === ordered.length - 1 ? '카운터당하기 쉬워 마지막에 상대를 보고 확정' : '중간 픽, 상대 첫 픽에 맞춰 교체 가능'}`) : [],
     threats: T.threats.map(t => t.ko),
-    alts: L.slice(1).map(o => ({ names: o.ids.map(id => koById[id]).join(' · '), ar: `${o.archetype} · 맵 ${pct(o.f.mapN)} · 밸런스 ${pct(o.f.balance)} · 내성 ${pct(o.f.counter)}`, score: o.score })),
+    alts: L.slice(1).map(o => ({ names: o.ids.map(id => koById[id]).join(' · '), ar: o.summary, score: o.score })),
   };
 }
 

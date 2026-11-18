@@ -131,4 +131,7 @@ score = round(40 + 60 × (Σ v·W / Σ W) ^ 1.3)
 | `fallbackFeat(mode)`, `parseStats(json)` | 웹과 같음 |
 | `recommend(mapId, feat, {stats, lock, enemy, ban})` | 웹 결과 카드에 그려지는 값 전부: 순위별 팀, 역할, 픽 순서, 점수, 추정 승률, 평가 항목, 근거, 밴 추천, 시뮬레이션 수 |
 
+화면에 보일 숫자 문자열(`effPct`, `percent`, `counterPercent`, `summary`, `countText`)도 엔진이 웹과 같은 식으로 만들어 줍니다. 호스트가 다시 반올림하면 웹과 달라질 수 있기 때문입니다. 예를 들어 1.25를 JS `toFixed(1)`은 "1.3"으로, Swift `String(format:"%.1f")`는 "1.2"로 반올림합니다.
+천 단위 구분 기호는 실행 환경 언어와 관계없이 `ko-KR`로 고정했습니다. 한국어 브라우저에서 보이는 결과는 바뀌지 않습니다.
+
 여기서는 새로 계산하지 않습니다. 웹의 `runEngine` → `renderResult`가 호출하는 함수를 같은 순서로 부를 뿐입니다.

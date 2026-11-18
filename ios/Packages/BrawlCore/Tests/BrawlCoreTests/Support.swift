@@ -2,7 +2,9 @@ import Foundation
 @testable import BrawlCore
 
 enum Fixtures {
-    static let dir = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent().appendingPathComponent("Fixtures")
+    /// 레포 루트의 tests/app-fixtures (Android core 테스트와 공용)
+    static let dir = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
+        .deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent().appendingPathComponent("tests/app-fixtures")
     static func data(_ name: String) -> Data { try! Data(contentsOf: dir.appendingPathComponent(name)) }
     static let catalog: EngineCatalog = try! JSONDecoder().decode(EngineCatalog.self, from: data("catalog.json"))
     static func result(_ name: String) -> EngineResult { try! JSONDecoder().decode(EngineResult.self, from: data(name + ".json")) }

@@ -90,38 +90,25 @@ final class EngineParityTests: XCTestCase {
     }
 }
 
-/// tests/engine-regression/compare.cjs 의 view() 와 같은 변환 (웹 결과 카드에 보이는 값)
+/// tests/engine-regression/compare.cjs 의 view() 와 같은 변환. 숫자 표시 문자열은 엔진이 준 값을 그대로 쓴다
 enum WebView {
-    /// JS Math.round (0.5 는 +∞ 방향)
-    static func jsRound(_ x: Double) -> Int { Int(Foundation.floor(x + 0.5)) }
-    static func grouped(_ n: Int) -> String {
-        let s = String(n); var out = ""
-        for (i, ch) in s.reversed().enumerated() { if i > 0 && i % 3 == 0 { out.append(",") }; out.append(ch) }
-        return String(out.reversed())
-    }
-    static func eff(_ e: Double) -> String { "실전 \(e >= 0 ? "+" : "")\(String(format: "%.1f", e * 100))%p" }
-
     static func view(_ R: EngineResult, _ k: Int) -> [String: Any] {
         var L = R.teams; L.swapAt(0, k)
         let T = L[0]
         var koById: [Int: String] = [:]
         for t in R.teams { for m in t.members { koById[m.id] = m.ko } }
         let ordered = T.members.filter { $0.pick != nil }.sorted { $0.pick! < $1.pick! }
-        let f = { (key: String) -> Double in (T.f[key] ?? nil) ?? 0 }
         return [
             "archetype": T.archetype,
-            "members": T.members.map { m -> [String: Any] in ["name": m.name, "role": m.role ?? NSNull(), "pick": m.pick.map { "\($0)픽" } ?? NSNull(), "eff": m.eff.map(eff) ?? NSNull()] },
+            "members": T.members.map { m -> [String: Any] in ["name": m.name, "role": m.role ?? NSNull(), "pick": m.pick.map { "\($0)픽" } ?? NSNull(), "eff": m.effPct.map { "실전 \($0)%p" } ?? NSNull()] },
             "score": T.score,
-            "kpi": ["\(T.estimatedWinRate)%", grouped(R.count), String(jsRound(f("counter") * 100))],
-            "bars": T.factors.map { [$0.label, jsRound(($0.value ?? 0) * 100)] as [Any] },
+            "kpi": ["\(T.estimatedWinRate)%", R.countText, String(T.counterPercent)],
+            "bars": T.factors.map { [$0.label, $0.percent ?? 0] as [Any] },
             "reasons": T.plainReasons,
             "order": R.map.size > 1 ? ordered.enumerated().map { i, m in "\(i + 1)픽 \(m.ko) — \(i == 0 ? "카운터가 적어 블라인드 픽으로 안전" : i == ordered.count - 1 ? "카운터당하기 쉬워 마지막에 상대를 보고 확정" : "중간 픽, 상대 첫 픽에 맞춰 교체 가능")" } : [],
             "threats": T.threats.map(\.ko),
             "alts": L.dropFirst().map { o -> [String: Any] in
-                let of = { (key: String) -> Double in (o.f[key] ?? nil) ?? 0 }
-                return ["names": o.ids.map { koById[$0] ?? "" }.joined(separator: " · "),
-                        "ar": "\(o.archetype) · 맵 \(jsRound(of("mapN") * 100)) · 밸런스 \(jsRound(of("balance") * 100)) · 내성 \(jsRound(of("counter") * 100))",
-                        "score": o.score]
+                ["names": o.ids.map { koById[$0] ?? "" }.joined(separator: " · "), "ar": o.summary, "score": o.score]
             },
         ]
     }

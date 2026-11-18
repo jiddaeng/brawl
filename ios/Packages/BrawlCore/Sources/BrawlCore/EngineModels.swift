@@ -90,6 +90,8 @@ public struct EngineResult: Codable, Sendable {
     public var demands: [String: Double]
     public var stats: StatsInfo?
     public var count: Int
+    /// 웹과 같은 표시 문자열 (예: "3,276")
+    public var countText: String
     public var poolSize: Int
     public var teams: [TeamResult]
 }
@@ -122,6 +124,10 @@ public struct TeamResult: Codable, Sendable {
     public var archetype: String
     /// teamEval 의 평가 항목 원값
     public var f: [String: Double?]
+    /// 카운터 내성 % (웹 결과 카드 값)
+    public var counterPercent: Int
+    /// 웹 대안 조합 줄의 요약 문구 (예: "밸런스 표준 · 맵 100 · 밸런스 100 · 내성 69")
+    public var summary: String
     /// 역할 순서로 정렬된 멤버 (웹 결과 카드 순서)
     public var members: [TeamMember]
     public var factors: [Factor]
@@ -142,6 +148,8 @@ public struct TeamMember: Codable, Hashable, Sendable, Identifiable {
     public var estimatedProfile: Bool
     /// BrawlTime 승률 효과 (예: 0.06 = +6.0%p). 통계가 없으면 nil
     public var eff: Double?
+    /// 웹과 같은 표시 문자열 (예: "+6.0"). 화면에는 이 값 + "%p" 를 쓴다 (Swift 에서 다시 반올림하지 않는다)
+    public var effPct: String?
     public var role: String?
     /// 드래프트 픽 순서 (1부터). 솔로 모드는 nil
     public var pick: Int?
@@ -151,6 +159,8 @@ public struct Factor: Codable, Hashable, Sendable {
     public var key: String
     public var label: String
     public var value: Double?
+    /// 웹 막대에 표시되는 % (Math.round(value×100))
+    public var percent: Int?
 }
 
 public enum HTMLEntities {

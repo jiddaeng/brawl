@@ -290,10 +290,10 @@ function runEngine(feat,anim){
     feat.ok?`> 타일 그리드 ${feat.cols}×${feat.rows} 스캔 · 커버 ${pct(feat.cover)}% · 부쉬 ${pct(feat.bush)}%`:`<span class="w">> 이미지 분석 실패 → 모드 기본값 사용</span>`,
     `> 최장 시야선 ${pct(feat.sight)}% · 중앙 개방 ${pct(feat.midOpen)}%`,
     `> 수요 벡터: 사거리 ${pct(dm.range)} / 투척 ${pct(dm.throw)} / 벽파괴 ${pct(dm.wb)} / 부쉬체크 ${pct(dm.bush)}`,
-    STATE.stats?`<span class="w">> 실전 데이터: ${esc(STATE.stats.preset)} ${STATE.stats.battles.toLocaleString()}판 (${STATE.stats.from} ~ ${STATE.stats.until})</span>`:`> 실전 데이터 없음 → 프로필 기반 추정만 사용`,
+    STATE.stats?`<span class="w">> 실전 데이터: ${esc(STATE.stats.preset)} ${STATE.stats.battles.toLocaleString('ko-KR')}판 (${STATE.stats.from} ~ ${STATE.stats.until})</span>`:`> 실전 데이터 없음 → 프로필 기반 추정만 사용`,
     `> 브롤러 ${R.pool.length}명 개별 적합도 산출`,
     `> 카운터 매트릭스 ${R.pool.length}×${R.pool.length} 구성`,
-    `> 조합 <span class="w">${R.count.toLocaleString()}</span>개 시뮬레이션 (${ms}ms)`,
+    `> 조합 <span class="w">${R.count.toLocaleString('ko-KR')}</span>개 시뮬레이션 (${ms}ms)`,
     `> 역할 밸런스·시너지·카운터 내성 가중 합산`,
     `<span class="w">> TOP ${R.list.length} 조합 확정 ✔</span>`]);
   renderResult(R,mp,dm,feat);
@@ -320,7 +320,7 @@ function renderResult(R,mp,dm,feat){
     <h3><span class="tag">S-TIER</span>최적 조합 · ${esc(archetype(best.team))}</h3>
     <div class="teamrow">${roles.map(r=>brCard(r.b,r.role,mpN>1?(order.indexOf(r.b)+1)+'픽':'')).join('')}</div>
     <div class="score"><div class="big" data-count="${best.score}">0<small> / 100</small></div>
-      <div class="kpi">추정 승률<b>${wr}%</b></div><div class="kpi">시뮬레이션<b>${R.count.toLocaleString()}</b></div><div class="kpi">카운터 내성<b>${pct(best.f.counter)}</b></div></div>
+      <div class="kpi">추정 승률<b>${wr}%</b></div><div class="kpi">시뮬레이션<b>${R.count.toLocaleString('ko-KR')}</b></div><div class="kpi">카운터 내성<b>${pct(best.f.counter)}</b></div></div>
     <div class="bars">${fac.map(k=>{const v=k==='mapN'?best.f.mapN:best.f[k];return `<div class="bar ${v>.72?'hi':v<.4?'lo':''}"><div class="t">${FLAB[k]}<b>${pct(v)}</b></div><div class="tr"><i data-w="${pct(v)}"></i></div></div>`}).join('')}</div>
     <div class="cols">
       <div class="box"><h4>왜 이 조합인가</h4><ul>${why(best,mp,dm,feat).map(s=>`<li>${s}</li>`).join('')}</ul></div>

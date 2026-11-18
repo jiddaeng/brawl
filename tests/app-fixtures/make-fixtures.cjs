@@ -1,7 +1,8 @@
-// BrawlCore 테스트 입력 생성: 녹화된 API 응답(tests/engine-regression/fixtures)으로 실제 엔진을 돌려
-// catalog.json(현재 맵 풀·브롤러)과 result-*.json(추천 결과)을 만든다.  실행: node ios/Packages/BrawlCore/Tests/make-fixtures.cjs
+// iOS(BrawlCore)·Android(core) 공용 테스트 입력 생성: 녹화된 API 응답(tests/engine-regression/fixtures)으로 실제 엔진을 돌려
+// catalog.json(현재 맵 풀·브롤러)과 result-*.json(추천 결과)을 만든다.  실행: node tests/app-fixtures/make-fixtures.cjs
+// recognition-cases.json(화면 인식 공유 테스트 벡터)은 손으로 관리한다.
 const fs = require('fs'), path = require('path'), vm = require('vm');
-const root = path.resolve(__dirname, '../../../..'), fx = path.join(root, 'tests/engine-regression/fixtures'), out = path.join(__dirname, 'Fixtures');
+const root = path.resolve(__dirname, '../..'), fx = path.join(root, 'tests/engine-regression/fixtures'), out = __dirname;
 const ctx = vm.createContext({});
 vm.runInContext(fs.readFileSync(path.join(root, 'engine/draft-engine.js'), 'utf8'), ctx);
 const E = vm.runInContext('DraftEngine', ctx);
