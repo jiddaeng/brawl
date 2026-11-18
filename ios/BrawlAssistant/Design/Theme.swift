@@ -15,7 +15,7 @@ enum Theme {
     /// 실전 승률 효과 + (웹 --green)
     static let positive = Color(hex: 0x36E39B)
 
-    static let corner: CGFloat = 12
+    static let corner: CGFloat = 16
     static let symbol = "scope"   // 앱 심볼 (Dynamic Island compact/minimal)
 }
 

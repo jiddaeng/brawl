@@ -16,27 +16,28 @@ struct HomeView: View {
         let vm = HomeViewModel(app: app)
         let p = vm.presentation
         ScrollView {
-            VStack(alignment: .leading, spacing: 20) {
+            VStack(alignment: .leading, spacing: 24) {
                 header
                 StatusRow(presentation: p)
                 if let rec = p.recommendation {
                     RecommendationView(recommendation: rec, result: vm.result, store: app.store)
-                        .padding(16).background(Theme.card, in: RoundedRectangle(cornerRadius: Theme.corner))
+                        .padding(18)
+                        .background(Theme.card, in: RoundedRectangle(cornerRadius: Theme.corner, style: .continuous))
                 } else if !onboardingDone || app.catalog == nil {
                     OnboardingView { onboardingDone = true }
                 }
-                if p.canRetry {
-                    HStack(spacing: 10) {
-                        SecondaryButton(title: "다시 인식") { app.retryRecognition() }
-                        SecondaryButton(title: "맵 직접 선택") { showMapPicker = true }
-                    }
-                }
-                controls(p)
+                actions(p)
+                settings
                 footer(vm)
             }
-            .padding(.horizontal, 20).padding(.vertical, 16)
+            .padding(.horizontal, 20)
+            .padding(.top, 8)
+            .padding(.bottom, 24)
         }
+        .scrollIndicators(.hidden)
         .background(Theme.background.ignoresSafeArea())
+        // 주 동작은 화면 아래에 고정 (안전 영역 위, 위쪽 구분선)
+        .safeAreaInset(edge: .bottom, spacing: 0) { bottomBar(p) }
         .overlay(alignment: .bottomTrailing) {
             // 방송 시트를 띄우는 시스템 뷰 (보이지 않게 둔다)
             BroadcastPickerHost(holder: picker).frame(width: 1, height: 1).opacity(0.01).allowsHitTesting(false)
@@ -49,38 +50,73 @@ struct HomeView: View {
     }
 
     private var header: some View {
-        VStack(alignment: .leading, spacing: 2) {
-            Text("BRAWL ASSISTANT").font(.caption.weight(.heavy)).tracking(3).foregroundStyle(Theme.secondaryText)
+        VStack(alignment: .leading, spacing: 4) {
+            Text("BRAWL ASSISTANT").font(.system(size: 12, weight: .heavy)).tracking(2.4).foregroundStyle(Theme.secondaryText)
             Text("DRAFT ROOM").font(.system(size: 34, weight: .black)).foregroundStyle(Theme.text)
         }
+        .padding(.top, 8)
     }
 
-    @ViewBuilder private func controls(_ p: HomePresentation) -> some View {
-        VStack(spacing: 10) {
-            if p.broadcastActive || app.session.status == .waiting {
-                PrimaryButton(title: "화면 분석 종료", systemImage: "stop.fill") { app.stopBroadcast() }
-                SecondaryButton(title: "방송 시트 열기") { picker.present() }
-            } else {
-                PrimaryButton(title: "화면 분석 시작", systemImage: "record.circle") {
-                    if app.prepareBroadcast() { picker.present() }
+    private func bottomBar(_ p: HomePresentation) -> some View {
+        VStack(spacing: 0) {
+            Rectangle().fill(Theme.divider).frame(height: 0.5)
+            Group {
+                if p.broadcastActive || app.session.status == .waiting {
+                    PrimaryButton(title: "화면 분석 종료", systemImage: "stop.fill", destructive: true) { app.stopBroadcast() }
+                } else {
+                    PrimaryButton(title: "화면 분석 시작", systemImage: "record.circle") {
+                        if app.prepareBroadcast() { picker.present() }
+                    }
                 }
             }
-            HStack(spacing: 10) {
-                SecondaryButton(title: activity.isRunning ? "Live Activity 종료" : "Live Activity 시작") { app.toggleLiveActivity() }
-                SecondaryButton(title: "데이터 새로고침") { Task { await app.refresh() } }
+            .padding(.horizontal, 20)
+            .padding(.top, 12)
+            .padding(.bottom, 8)
+        }
+        .background(Theme.background)
+    }
+
+    /// 보조 동작: 목록형 한 카드
+    private func actions(_ p: HomePresentation) -> some View {
+        VStack(spacing: 0) {
+            if p.canRetry {
+                ActionRow(title: "다시 인식", systemImage: "arrow.clockwise") { app.retryRecognition() }
+                RowDivider()
             }
-            if !p.canRetry { SecondaryButton(title: "맵 직접 선택") { showMapPicker = true } }
-            VStack(alignment: .leading, spacing: 6) {
+            if p.broadcastActive {
+                ActionRow(title: "방송 시트 열기", systemImage: "dot.radiowaves.left.and.right") { picker.present() }
+                RowDivider()
+            }
+            ActionRow(title: "맵 직접 선택", systemImage: "map") { showMapPicker = true }
+            RowDivider()
+            ActionRow(title: activity.isRunning ? "Live Activity 끄기" : "Live Activity 켜기",
+                      systemImage: "platter.filled.top.iphone", detail: activity.isRunning ? "켜짐" : nil) { app.toggleLiveActivity() }
+            RowDivider()
+            ActionRow(title: "데이터 새로고침", systemImage: "arrow.triangle.2.circlepath") { Task { await app.refresh() } }
+        }
+        .background(Theme.card, in: RoundedRectangle(cornerRadius: Theme.corner, style: .continuous))
+    }
+
+    private var settings: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            SectionLabel("설정")
+            VStack(spacing: 0) {
                 Toggle("추천이 바뀌면 Dynamic Island 펼치기", isOn: $alertOnChange)
                     .onChange(of: alertOnChange) { _, v in activity.alertOnChange = v }
+                    .padding(.horizontal, 16).padding(.vertical, 12)
+                RowDivider()
                 Toggle("드래프트 픽 글자 인식 반영 (실험)", isOn: $usePicks)
+                    .padding(.horizontal, 16).padding(.vertical, 12)
             }
-            .font(.footnote).foregroundStyle(Theme.secondaryText).tint(Theme.accent).padding(.top, 4)
+            .font(.system(size: 15))
+            .foregroundStyle(Theme.text)
+            .tint(Theme.accent)
+            .background(Theme.card, in: RoundedRectangle(cornerRadius: Theme.corner, style: .continuous))
         }
     }
 
     private func footer(_ vm: HomeViewModel) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
+        VStack(alignment: .leading, spacing: 5) {
             Text(vm.dataLine)
             if let s = vm.dataStatusLine { Text(s) }
             if let s = vm.precomputeLine { Text(s) }
@@ -90,7 +126,9 @@ struct HomeView: View {
             if let e = activity.lastError { Text(e).foregroundStyle(Theme.error) }
             Text("비공식 팬메이드 도구 · 데이터: Brawlify, BrawlTime")
         }
-        .font(.caption2).foregroundStyle(Theme.secondaryText)
+        .font(.system(size: 11))
+        .foregroundStyle(Theme.secondaryText)
+        .padding(.horizontal, 4)
     }
 }
 
@@ -123,7 +161,7 @@ struct OnboardingView: View {
                 .font(.caption).foregroundStyle(Theme.secondaryText)
             Button("확인", action: onDone).font(.footnote.weight(.semibold)).foregroundStyle(Theme.accent)
         }
-        .padding(16).background(Theme.card, in: RoundedRectangle(cornerRadius: Theme.corner))
+        .padding(18).background(Theme.card, in: RoundedRectangle(cornerRadius: Theme.corner, style: .continuous))
     }
     private func step(_ n: Int, _ t: String) -> some View {
         HStack(alignment: .top, spacing: 10) {
@@ -136,20 +174,49 @@ struct OnboardingView: View {
 struct PrimaryButton: View {
     let title: String
     let systemImage: String
+    var destructive = false
     let action: () -> Void
     var body: some View {
         Button(action: action) {
-            Label(title, systemImage: systemImage).font(.body.weight(.semibold)).frame(maxWidth: .infinity).padding(.vertical, 14)
+            Label(title, systemImage: systemImage)
+                .font(.system(size: 17, weight: .semibold))
+                .frame(maxWidth: .infinity).frame(height: 52)
         }
-        .foregroundStyle(Color.black).background(Theme.text, in: RoundedRectangle(cornerRadius: Theme.corner))
+        .foregroundStyle(destructive ? Theme.text : Color.black)
+        .background(destructive ? Theme.secondaryBackground : Theme.text, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
     }
 }
 
-struct SecondaryButton: View {
+/// 목록형 카드의 한 줄
+struct ActionRow: View {
     let title: String
+    let systemImage: String
+    var detail: String? = nil
     let action: () -> Void
     var body: some View {
-        Button(action: action) { Text(title).font(.footnote.weight(.semibold)).frame(maxWidth: .infinity).padding(.vertical, 12) }
-            .foregroundStyle(Theme.text).background(Theme.secondaryBackground, in: RoundedRectangle(cornerRadius: Theme.corner))
+        Button(action: action) {
+            HStack(spacing: 12) {
+                Image(systemName: systemImage).font(.system(size: 15, weight: .medium)).foregroundStyle(Theme.secondaryText).frame(width: 22)
+                Text(title).font(.system(size: 15)).foregroundStyle(Theme.text)
+                Spacer()
+                if let detail { Text(detail).font(.system(size: 13)).foregroundStyle(Theme.accent) }
+                Image(systemName: "chevron.right").font(.system(size: 12, weight: .semibold)).foregroundStyle(Theme.divider)
+            }
+            .padding(.horizontal, 16).frame(height: 48)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+    }
+}
+
+struct RowDivider: View {
+    var body: some View { Rectangle().fill(Theme.divider).frame(height: 0.5).padding(.leading, 50) }
+}
+
+struct SectionLabel: View {
+    let text: String
+    init(_ text: String) { self.text = text }
+    var body: some View {
+        Text(text).font(.system(size: 12, weight: .semibold)).foregroundStyle(Theme.secondaryText).padding(.leading, 4)
     }
 }

@@ -14,29 +14,28 @@ struct BrawlLiveActivity: Widget {
             let s = context.state
             return DynamicIsland {
                 DynamicIslandExpandedRegion(.leading) {
-                    Label { Text("BRAWL ASSISTANT").font(.caption2.weight(.heavy)) } icon: { Image(systemName: Theme.symbol) }
-                        .foregroundStyle(Theme.secondaryText).lineLimit(1)
+                    IslandHeader(state: s).dynamicIsland(verticalPlacement: .belowIfTooWide)
                 }
                 DynamicIslandExpandedRegion(.trailing) {
-                    if let score = s.score {
-                        Text("\(score)").font(.title3.weight(.bold).monospacedDigit()).foregroundStyle(Theme.accent)
-                    } else {
-                        StatusBadge(status: s.status)
-                    }
+                    IslandScore(state: s)
                 }
                 DynamicIslandExpandedRegion(.bottom) {
-                    BrawlExpandedView(state: s)
+                    IslandTeam(state: s)
                 }
             } compactLeading: {
-                Image(systemName: Theme.symbol).foregroundStyle(s.status == .ready ? Theme.accent : Theme.secondaryText)
+                Image(systemName: Theme.symbol)
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(s.isReady ? Theme.accent : Theme.secondaryText)
             } compactTrailing: {
-                if s.status == .ready, !s.members.isEmpty {
-                    HStack(spacing: 2) { ForEach(s.members.prefix(3), id: \.id) { MiniPortrait(id: $0.id, size: 18) } }
+                if s.isReady {
+                    StackedPortraits(members: Array(s.members.prefix(3)), size: 20)
                 } else {
-                    StatusBadge(status: s.status, compact: true)
+                    StatusGlyph(status: s.status).font(.system(size: 13, weight: .semibold))
                 }
             } minimal: {
-                Image(systemName: Theme.symbol).foregroundStyle(s.status == .ready ? Theme.accent : Theme.secondaryText)
+                Image(systemName: Theme.symbol)
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(s.isReady ? Theme.accent : Theme.secondaryText)
             }
             .keylineTint(Theme.accent)
         }
