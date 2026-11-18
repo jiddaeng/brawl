@@ -2,7 +2,7 @@ name: iOS
 on:
   push:
     branches: ['main', 'claude/**']
-    paths: ['ios/**', 'engine/**', 'tests/engine-regression/**', '.github/workflows/ios.yml']
+    paths: ['ios/**', 'engine/**', 'tests/engine-regression/**', 'tests/app-fixtures/**', '.github/workflows/ios.yml']
   workflow_dispatch:
 
 concurrency:

@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Brawl Assistant</string>
+    <string name="channel_live">추천 상태</string>
+    <string name="channel_live_desc">인식된 맵과 BEST TEAM 을 보여 줍니다</string>
+</resources>

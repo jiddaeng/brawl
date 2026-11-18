@@ -79,18 +79,21 @@ public struct NameDictionary<Value: Hashable> {
 
     public init() {}
     public mutating func add(_ value: Value, names: [String]) {
-        for n in Set(names) {
+        var seen = Set<String>()
+        for n in names where seen.insert(n).inserted {
             let k = TextNormalizer.normalize(n)
             if !k.isEmpty { entries.append(Entry(value: value, text: n, key: k)) }
         }
     }
 
-    /// 한 줄에서 기준을 넘는 모든 후보 (값별 최고 유사도)
+    /// 한 줄에서 기준을 넘는 모든 후보 (값별 최고 유사도).
+    /// 정렬: 유사도 내림차순, 같으면 사전에 먼저 넣은 순서 (실행마다 같은 결과, Android core 와 같은 규칙)
     public func matches(in line: String, minimumLength: Int = 1) -> [TextMatch<Value>] {
         let l = TextNormalizer.normalize(line)
         guard !l.isEmpty else { return [] }
         var best: [Value: TextMatch<Value>] = [:]
-        for e in entries where e.key.count >= minimumLength {
+        var firstSeen: [Value: Int] = [:]
+        for (order, e) in entries.enumerated() where e.key.count >= minimumLength {
             // 길이 차이가 크면 계산하지 않는다 (줄이 훨씬 짧으면 불가능)
             if l.count * 10 < e.key.count * 7 { continue }
             let s: Double
@@ -101,9 +104,12 @@ public struct NameDictionary<Value: Hashable> {
                 s = TextNormalizer.similarity(line: l, name: e.key)
             }
             guard s >= TextNormalizer.threshold(forLength: e.key.count) else { continue }
+            if firstSeen[e.value] == nil { firstSeen[e.value] = order }
             if (best[e.value]?.similarity ?? -1) < s { best[e.value] = TextMatch(value: e.value, matchedText: e.text, similarity: s) }
         }
-        return best.values.sorted { $0.similarity > $1.similarity }
+        return best.values.sorted { a, b in
+            a.similarity != b.similarity ? a.similarity > b.similarity : firstSeen[a.value]! < firstSeen[b.value]!
+        }
     }
 }
 
@@ -141,7 +147,10 @@ public struct GameScreenMatcher {
         for (i, m) in maps.enumerated() { mapDict.add(i, names: [m.name, m.ko]) }
         var modes: [String: Set<String>] = [:]
         for m in maps { modes[m.mode, default: []].formUnion([m.mode, m.modeKo]) }
-        for (k, v) in modes { modeDict.add(k, names: Array(v)) }
+        // 모드 순서: 카탈로그에 처음 나온 순서, 이름 순서: 영문 → 한국어
+        var order: [String] = []
+        for m in maps where !order.contains(m.mode) { order.append(m.mode) }
+        for k in order { modeDict.add(k, names: [k] + (modes[k] ?? []).filter { $0 != k }.sorted()) }
         for b in catalog.brawlers { brawlerDict.add(b.id, names: [b.name, b.ko]) }
     }
 
@@ -159,8 +168,8 @@ public struct GameScreenMatcher {
         if let top = hits.max(by: { $0.sim < $1.sim }) {
             let topName = TextNormalizer.normalize(maps[top.idx].name)
             // 최고 점수와 거의 같은 후보 중 같은 맵 이름(모드만 다른 맵)을 모은다
-            let sameName = Set(hits.filter { TextNormalizer.normalize(maps[$0.idx].name) == topName }.map { $0.idx }).map { maps[$0] }
-            let rivals = Set(hits.filter { $0.sim >= top.sim - 0.05 && TextNormalizer.normalize(maps[$0.idx].name) != topName }.map { $0.idx })
+            let sameName = Set(hits.filter { TextNormalizer.normalize(maps[$0.idx].name) == topName }.map { $0.idx }).sorted().map { maps[$0] }
+            let rivals = Set(hits.filter { $0.sim >= top.sim - 0.05 && TextNormalizer.normalize(maps[$0.idx].name) != topName }.map { $0.idx }).sorted()
             if rivals.isEmpty {
                 if sameName.count == 1 {
                     result.map = sameName[0]
@@ -172,7 +181,7 @@ public struct GameScreenMatcher {
                 result.mapConfidence = top.sim
             } else {
                 // 서로 다른 맵 이름이 비슷한 점수로 읽힘 → 확정하지 않는다
-                result.ambiguousMaps = ([top.idx] + Array(rivals)).map { maps[$0] }
+                result.ambiguousMaps = ([top.idx] + rivals).map { maps[$0] }
                 result.mapConfidence = top.sim
             }
             if let m = result.map, result.mode == nil { result.mode = m.mode }
