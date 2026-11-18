@@ -21,7 +21,9 @@ jobs:
         working-directory: ios/Packages/BrawlCore
         env:
           JSC_useJIT: "false"
-        run: swift test 2>&1 | tee swift-test.log
+        run: |
+          set -o pipefail
+          swift test 2>&1 | tee swift-test.log
       - name: iOS 엔진 결과를 compare.cjs 로도 확인
         run: |
           f="$(find "$TMPDIR" /tmp -name brawl-engine-results.json 2>/dev/null | head -1)"

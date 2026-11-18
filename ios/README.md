@@ -3,7 +3,7 @@
 브롤스타즈 화면에서 맵과 모드를 읽어, 기존 **Draft Room 추천 엔진**으로 조합을 계산하고 Dynamic Island에 보여 주는 iPhone 앱입니다.
 추천 알고리즘은 새로 만들지 않았습니다. 웹 사이트와 같은 파일인 `../engine/draft-engine.js`를 JavaScriptCore로 그대로 실행합니다.
 
-> 상태: **초기 구현, 아직 Xcode로 빌드하지 않음.** 아래 [검증 현황](#검증-현황)을 먼저 확인하세요.
+> 상태: GitHub Actions(macOS, Xcode 16.4)에서 앱·위젯 확장·방송 확장이 시뮬레이터용과 기기용 모두 빌드되고, 엔진 일치 테스트가 통과합니다. 실제 iPhone 동작은 아직 확인하지 않았습니다. 아래 [검증 현황](#검증-현황)을 보세요.
 
 ## 구조
 
@@ -78,16 +78,27 @@ ios/
 | 같은 비교를 Node(V8)로 | 517개 일치 |
 | 가중치를 2.2→2.25로 일부러 바꿨을 때 | 28개 시나리오 불일치로 검출 (테스트가 차이를 잡는지 확인) |
 | 맵 PNG 원본 픽셀로 분석 vs 브라우저 canvas | 18개 맵 전부 동일 (PNG에 색 프로필 없음 → 색 변환 없이 읽으면 같음) |
-| `BrawlCore` 단위 테스트 (Swift 6.4.2 Linux) | 33개 통과: OCR 매칭, 인식 안정화, 프레임 샘플링, Live Activity 갱신 정책, 세션 상태 전이, 화면 표시 규칙, 저장소, API 폴백, 모델 |
+| `BrawlCore` 단위 테스트 (Swift 6.4.2 Linux) | 35개 통과: OCR 매칭, 인식 안정화, 프레임 샘플링, Live Activity 갱신 정책, 세션 상태 전이, 화면 표시 규칙, 저장소, API 폴백, 모델, Android와 공용인 인식 벡터 |
 | 웹 스모크 테스트 | 14개 통과 |
 
 JIT 없는 JavaScriptCore 속도(이 서버 기준): 시나리오당 평균 0.42초, 최대 2.1초.
 
-### Mac에서 확인해야 하는 것 (아직 안 함)
+### GitHub Actions (macOS 15, Xcode 16.4)에서 통과한 것
 
-- `xcodegen generate`, 세 타깃 빌드 (**Swift 앱·위젯·확장 코드는 아직 한 번도 컴파일되지 않았습니다**)
-- `BrawlEngineTests`: Apple JavaScriptCore로 golden 517개 일치, CoreGraphics `PixelDecoder`로 맵 분석 일치
-- 시뮬레이터에서 화면, 맵 직접 선택 → 추천, Live Activity·Dynamic Island 표시와 갱신
+| 항목 | 결과 |
+|---|---|
+| `xcodegen generate` → `xcodebuild` 시뮬레이터 빌드 / 기기용 빌드 (서명 없이) | 앱, 위젯 확장, 방송 확장 모두 성공 |
+| `swift test` (`JSC_useJIT=false`) | 38개 통과 |
+| Apple JavaScriptCore로 웹 정답 비교 | 517/517 조합 일치 |
+| CoreGraphics `PixelDecoder`(원본 바이트)로 맵 분석 | 18개 맵 브라우저와 일치 |
+
+CI 실행 중 찾아서 고친 문제:
+- **반올림 차이:** Swift `String(format:"%.1f")`와 JS `toFixed(1)`이 1.25를 다르게 반올림해, 앱 화면 숫자가 웹과 달라질 수 있었습니다. 이제 표시 문자열을 엔진이 만듭니다.
+- **언어 설정 차이:** `toLocaleString()`이 실행 환경 언어에 따라 달라졌습니다. `ko-KR`로 고정했습니다.
+
+### 아직 확인하지 않은 것
+
+- 시뮬레이터에서 화면 확인, 맵 직접 선택 → 추천, Live Activity·Dynamic Island 표시와 갱신 (CI는 빌드만 함)
 
 ### 실제 iPhone 17에서만 확인할 수 있는 것
 
