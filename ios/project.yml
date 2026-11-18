@@ -1,0 +1,149 @@
+# Brawl Assistant (iOS) — XcodeGen 프로젝트 정의
+# 생성: brew install xcodegen && cd ios && xcodegen generate  →  BrawlAssistant.xcodeproj
+# 서명 전에 아래 settings 의 DEVELOPMENT_TEAM, APP_BUNDLE_ID, APP_GROUP_ID 를 본인 값으로 바꾼다.
+name: BrawlAssistant
+options:
+  bundleIdPrefix: com.example
+  deploymentTarget:
+    iOS: "17.0"
+  createIntermediateGroups: true
+  developmentLanguage: ko
+
+settings:
+  base:
+    DEVELOPMENT_TEAM: ""
+    APP_BUNDLE_ID: com.example.brawlassistant
+    APP_GROUP_ID: group.com.example.brawlassistant
+    MARKETING_VERSION: "0.1.0"
+    CURRENT_PROJECT_VERSION: "1"
+    SWIFT_VERSION: "5.0"
+    TARGETED_DEVICE_FAMILY: "1"          # iPhone 전용
+    CODE_SIGN_STYLE: Automatic
+
+packages:
+  BrawlCore:
+    path: Packages/BrawlCore
+
+targets:
+  BrawlAssistant:
+    type: application
+    platform: iOS
+    sources:
+      - path: BrawlAssistant/App
+      - path: BrawlAssistant/Features
+      - path: BrawlAssistant/Design
+      - path: BrawlAssistant/Shared
+      - path: BrawlAssistant/LiveActivity/BrawlActivityAttributes.swift
+      - path: BrawlAssistant/LiveActivity/LiveActivityController.swift
+      # 기존 Draft Room 추천 엔진 (웹과 같은 파일을 그대로 번들에 넣는다)
+      - path: ../engine/draft-engine.js
+        buildPhase: resources
+    dependencies:
+      - package: BrawlCore
+        product: BrawlCore
+      - package: BrawlCore
+        product: BrawlEngine
+      - target: BrawlAssistantWidget
+      - target: BrawlBroadcastExtension
+      - sdk: ReplayKit.framework
+      - sdk: JavaScriptCore.framework
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: $(APP_BUNDLE_ID)
+        PRODUCT_NAME: BrawlAssistant
+    info:
+      path: BrawlAssistant/Resources/Info.plist
+      properties:
+        CFBundleDisplayName: Brawl Assistant
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        UILaunchScreen:
+          UIColorName: ""
+        UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait]
+        UIUserInterfaceStyle: Dark
+        NSSupportsLiveActivities: true
+        BrawlAppGroup: $(APP_GROUP_ID)
+        BrawlBroadcastExtensionBundleID: $(APP_BUNDLE_ID).broadcast
+    entitlements:
+      path: BrawlAssistant/Resources/BrawlAssistant.entitlements
+      properties:
+        com.apple.security.application-groups: [$(APP_GROUP_ID)]
+
+  BrawlAssistantWidget:
+    type: app-extension
+    platform: iOS
+    sources:
+      - path: BrawlAssistant/LiveActivity/Widget
+      - path: BrawlAssistant/LiveActivity/BrawlActivityAttributes.swift
+      - path: BrawlAssistant/Shared
+      - path: BrawlAssistant/Design
+    dependencies:
+      - package: BrawlCore
+        product: BrawlCore
+      - sdk: WidgetKit.framework
+      - sdk: SwiftUI.framework
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: $(APP_BUNDLE_ID).widget
+    info:
+      path: BrawlAssistant/Resources/Widget-Info.plist
+      properties:
+        CFBundleDisplayName: Brawl Assistant
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        BrawlAppGroup: $(APP_GROUP_ID)
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.widgetkit-extension
+    entitlements:
+      path: BrawlAssistant/Resources/BrawlAssistantWidget.entitlements
+      properties:
+        com.apple.security.application-groups: [$(APP_GROUP_ID)]
+
+  BrawlBroadcastExtension:
+    type: app-extension
+    platform: iOS
+    sources:
+      - path: BrawlAssistant/Extensions/BrawlBroadcastExtension
+      - path: BrawlAssistant/LiveActivity/BrawlActivityAttributes.swift
+      - path: BrawlAssistant/Shared/AppGroup.swift
+    dependencies:
+      - package: BrawlCore
+        product: BrawlCore
+      - sdk: ReplayKit.framework
+      - sdk: Vision.framework
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: $(APP_BUNDLE_ID).broadcast
+        # 방송 확장에서 Live Activity 직접 갱신 시도 (빌드·동작이 안 되면 이 줄을 지운다)
+        SWIFT_ACTIVE_COMPILATION_CONDITIONS: $(inherited) BROADCAST_UPDATES_ACTIVITY
+    info:
+      path: BrawlAssistant/Resources/Broadcast-Info.plist
+      properties:
+        CFBundleDisplayName: Brawl Assistant
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        BrawlAppGroup: $(APP_GROUP_ID)
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.broadcast-services-upload
+          NSExtensionPrincipalClass: $(PRODUCT_MODULE_NAME).SampleHandler
+          RPBroadcastProcessMode: RPBroadcastProcessModeSampleBuffer
+    entitlements:
+      path: BrawlAssistant/Resources/BrawlBroadcastExtension.entitlements
+      properties:
+        com.apple.security.application-groups: [$(APP_GROUP_ID)]
+
+schemes:
+  BrawlAssistant:
+    build:
+      targets:
+        BrawlAssistant: all
+    run:
+      config: Debug
+    test:
+      config: Debug
+      # iOS 앱의 JavaScriptCore 는 JIT 없이 돈다. 시뮬레이터에서도 같은 조건으로 엔진 일치 테스트를 돌린다
+      environmentVariables:
+        JSC_useJIT: "false"
+      targets:
+        - package: BrawlCore/BrawlCoreTests
+        - package: BrawlCore/BrawlEngineTests

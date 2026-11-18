@@ -1,0 +1,7 @@
+*.xcodeproj
+BrawlAssistant/Resources/*.plist
+BrawlAssistant/Resources/*.entitlements
+Packages/BrawlCore/.build/
+Packages/BrawlCore/.swiftpm/
+xcuserdata/
+DerivedData/
