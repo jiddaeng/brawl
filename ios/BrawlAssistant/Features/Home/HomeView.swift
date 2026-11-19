@@ -17,12 +17,10 @@ struct HomeView: View {
         let p = vm.presentation
         ScrollView {
             VStack(alignment: .leading, spacing: 24) {
-                header
+                header(p)
                 StatusRow(presentation: p)
                 if let rec = p.recommendation {
                     RecommendationView(recommendation: rec, result: vm.result, store: app.store)
-                        .padding(20)
-                        .background(Theme.card, in: RoundedRectangle(cornerRadius: Theme.corner, style: .continuous))
                 } else if !onboardingDone || app.catalog == nil {
                     OnboardingView { onboardingDone = true }
                 }
@@ -37,7 +35,7 @@ struct HomeView: View {
         .scrollIndicators(.hidden)
         // 스크롤한 내용이 상태 표시줄(시계) 아래로 비치지 않게 스크롤 영역(안전 영역 안)으로 자른다
         .clipped()
-        .background(Theme.background.ignoresSafeArea())
+        .background(DraftRoomBackground())
         // 주 동작은 화면 아래에 고정 (안전 영역 위, 위쪽 구분선)
         .safeAreaInset(edge: .bottom, spacing: 0) { bottomBar(p) }
         .overlay(alignment: .bottomTrailing) {
@@ -51,18 +49,27 @@ struct HomeView: View {
         .preferredColorScheme(.dark)
     }
 
-    private var header: some View {
-        // 로고: 제품 이름 (DRAFT ROOM 워드마크는 웹 Draft Room 의 브랜드). 위 줄은 앱 이름을 조용한 텍스트로
-        VStack(alignment: .leading, spacing: 4) {
-            Text("Brawl Assistant").font(.subheadline.weight(.medium)).foregroundStyle(Theme.secondaryText)
-            Text("DRAFT ROOM").font(.system(.largeTitle, design: .default, weight: .black)).foregroundStyle(Theme.text)
+    private func header(_ p: HomePresentation) -> some View {
+        // 웹 Draft Room 머리: 금색 로고 + 상태 칩 (LIVE · 맵 풀 · 브롤러)
+        VStack(alignment: .leading, spacing: 14) {
+            DraftRoomLogo(size: 44)
+            HStack(spacing: 6) {
+                Chip {
+                    LiveDot(on: p.broadcastActive)
+                    Text(p.broadcastActive ? "LIVE" : "READY").foregroundStyle(Theme.text)
+                }
+                if let c = app.catalog {
+                    Chip { Text("맵 풀 \(c.maps.count)") }
+                    Chip { Text("브롤러 \(c.brawlers.count)") }
+                }
+            }
         }
-        .padding(.top, 8)
+        .padding(.top, 10)
     }
 
     private func bottomBar(_ p: HomePresentation) -> some View {
         VStack(spacing: 0) {
-            Rectangle().fill(Theme.divider).frame(height: 0.5)
+            Rectangle().fill(Theme.line).frame(height: 1)
             Group {
                 if p.broadcastActive || app.session.status == .waiting {
                     PrimaryButton(title: "화면 분석 종료", systemImage: "stop.fill", destructive: true) { app.stopBroadcast() }
@@ -76,7 +83,7 @@ struct HomeView: View {
             .padding(.top, 12)
             .padding(.bottom, 8)
         }
-        .background(Theme.background)
+        .background(Theme.background.opacity(0.94))
     }
 
     /// 보조 동작: 목록형 한 카드
@@ -94,7 +101,7 @@ struct HomeView: View {
             RowDivider()
             ActionRow(title: "데이터 새로고침", systemImage: "arrow.triangle.2.circlepath") { Task { await app.refresh() } }
         }
-        .background(Theme.card, in: RoundedRectangle(cornerRadius: Theme.corner, style: .continuous))
+        .draftCard()
     }
 
     private var settings: some View {
@@ -114,7 +121,7 @@ struct HomeView: View {
             .font(.body)
             .foregroundStyle(Theme.text)
             .tint(Theme.accent)
-            .background(Theme.card, in: RoundedRectangle(cornerRadius: Theme.corner, style: .continuous))
+            .draftCard()
             Text("Live Activity 를 켜면 이 앱이 화면에 없을 때 Dynamic Island 와 잠금 화면에 BEST TEAM 이 표시됩니다")
                 .font(.footnote).foregroundStyle(Theme.secondaryText).padding(.horizontal, 4)
         }
@@ -140,37 +147,43 @@ struct StatusRow: View {
     let presentation: HomePresentation
     var body: some View {
         HStack(alignment: .top, spacing: 10) {
-            Circle().fill(presentation.isError ? Theme.error : (presentation.broadcastActive ? Theme.accent : Theme.secondaryText))
-                .frame(width: 8, height: 8).padding(.top, 6)
-            VStack(alignment: .leading, spacing: 2) {
-                Text(presentation.statusTitle).font(.headline).foregroundStyle(Theme.text)
+            Circle().fill(dotColor)
+                .frame(width: 9, height: 9).padding(.top, 7)
+                .shadow(color: dotColor, radius: 5)
+            VStack(alignment: .leading, spacing: 3) {
+                Text(presentation.statusTitle).font(Theme.ko(19)).foregroundStyle(Theme.text)
                 if let d = presentation.statusDetail { Text(d).font(.subheadline).foregroundStyle(Theme.secondaryText).fixedSize(horizontal: false, vertical: true) }
                 if let r = presentation.recognition, let name = r.mapName, presentation.recommendation == nil {
-                    Text("인식: \(name)\(r.recognizedMode.map { " · " + (ModeNames.korean[$0] ?? $0) } ?? "")").font(.footnote).foregroundStyle(Theme.secondaryText)
+                    Text("인식: \(name)\(r.recognizedMode.map { " · " + (ModeNames.korean[$0] ?? $0) } ?? "")").font(Theme.mono(12)).foregroundStyle(Theme.accent)
                 }
             }
+            Spacer(minLength: 0)
         }
+        .padding(14)
+        .draftCard()
     }
+
+    private var dotColor: Color { presentation.isError ? Theme.error : (presentation.broadcastActive ? Theme.positive : Theme.secondaryText) }
 }
 
 struct OnboardingView: View {
     let onDone: () -> Void
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("사용 방법").font(.headline).foregroundStyle(Theme.text)
+            Text("사용 방법").font(Theme.ko(20)).foregroundStyle(Theme.accent)
             step(1, "‘화면 분석 시작’ → 방송 시트에서 Brawl Assistant 선택 → ‘방송 시작’")
             step(2, "브롤스타즈를 실행하고 로비의 이벤트·드래프트·로딩 화면처럼 맵 이름이 보이는 화면을 띄웁니다")
             step(3, "맵이 인식되면 Dynamic Island 와 이 화면에 BEST TEAM 이 표시됩니다")
             Text("화면은 기기 안에서만 분석되고 저장하거나 전송하지 않습니다. 방송은 이 앱, 제어 센터, 상단 상태 표시줄에서 언제든 끌 수 있습니다.")
                 .font(.footnote).foregroundStyle(Theme.secondaryText)
-            Button("확인", action: onDone).font(.subheadline.weight(.semibold)).foregroundStyle(Theme.text)
+            Button("확인", action: onDone).font(Theme.ko(16)).foregroundStyle(Theme.accent)
                 .frame(minHeight: 44)
         }
-        .padding(20).background(Theme.card, in: RoundedRectangle(cornerRadius: Theme.corner, style: .continuous))
+        .padding(18).draftCard()
     }
     private func step(_ n: Int, _ t: String) -> some View {
         HStack(alignment: .top, spacing: 10) {
-            Text("\(n)").font(.subheadline.monospacedDigit().weight(.semibold)).foregroundStyle(Theme.secondaryText)
+            Text("\(n)").font(Theme.display(20)).foregroundStyle(Theme.accent).frame(width: 16)
             Text(t).font(.subheadline).foregroundStyle(Theme.text).fixedSize(horizontal: false, vertical: true)
         }
     }
@@ -183,12 +196,27 @@ struct PrimaryButton: View {
     let action: () -> Void
     var body: some View {
         Button(action: action) {
-            Label(title, systemImage: systemImage)
-                .font(.headline)
-                .frame(maxWidth: .infinity).frame(height: 52)
+            HStack(spacing: 8) {
+                Image(systemName: systemImage).font(.system(size: 17, weight: .bold))
+                Text(title).font(Theme.ko(20, relativeTo: .headline))
+            }
+            .frame(maxWidth: .infinity).frame(height: 54)
+            .foregroundStyle(destructive ? Theme.text : Theme.goldInk)
+            .background(background)
+            .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(destructive ? Theme.error : Color.white.opacity(0.35), lineWidth: 1))
+            .shadow(color: destructive ? .clear : Theme.goldShadow, radius: 0, x: 0, y: 4)
+            .shadow(color: (destructive ? Theme.error : Theme.accent).opacity(0.3), radius: 14)
         }
-        .foregroundStyle(destructive ? Theme.text : Color.black)
-        .background(destructive ? Theme.secondaryBackground : Theme.text, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .buttonStyle(.plain)
+    }
+
+    @ViewBuilder private var background: some View {
+        let shape = RoundedRectangle(cornerRadius: 16, style: .continuous)
+        if destructive {
+            shape.fill(Theme.error.opacity(0.18))
+        } else {
+            shape.fill(Theme.goldGradient)
+        }
     }
 }
 
@@ -201,7 +229,7 @@ struct ActionRow: View {
     var body: some View {
         Button(action: action) {
             HStack(spacing: 12) {
-                Image(systemName: systemImage).font(.body).foregroundStyle(Theme.secondaryText).frame(width: 24)
+                Image(systemName: systemImage).font(.body.weight(.semibold)).foregroundStyle(Theme.accent).frame(width: 24)
                 Text(title).font(.body).foregroundStyle(Theme.text)
                 Spacer()
                 if let detail { Text(detail).font(.subheadline).foregroundStyle(Theme.secondaryText) }
@@ -216,13 +244,38 @@ struct ActionRow: View {
 
 struct RowDivider: View {
     var inset: CGFloat = 50
-    var body: some View { Rectangle().fill(Theme.divider).frame(height: 0.5).padding(.leading, inset) }
+    var body: some View { Rectangle().fill(Theme.line).frame(height: 1).padding(.leading, inset) }
 }
 
 struct SectionLabel: View {
     let text: String
     init(_ text: String) { self.text = text }
     var body: some View {
-        Text(text).font(.footnote.weight(.semibold)).foregroundStyle(Theme.secondaryText).padding(.leading, 4)
+        Text(text).font(Theme.ko(16)).foregroundStyle(Theme.accent).padding(.leading, 4)
+    }
+}
+
+/// 웹 .dot: 켜지면 빨간 빛 점 (깜빡임은 동작 줄이기 설정을 따른다)
+struct LiveDot: View {
+    let on: Bool
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var dim = false
+    var body: some View {
+        Circle().fill(on ? Theme.error : Theme.secondaryText)
+            .frame(width: 7, height: 7)
+            .shadow(color: on ? Theme.error : .clear, radius: 4)
+            .opacity(on && dim ? 0.35 : 1)
+            .onAppear {
+                guard on, !reduceMotion else { return }
+                withAnimation(.easeInOut(duration: 0.9).repeatForever(autoreverses: true)) { dim = true }
+            }
+    }
+}
+
+extension View {
+    /// 웹 .card: 패널→바탕 그라데이션 + 선 색 테두리
+    func draftCard(radius: CGFloat = Theme.corner) -> some View {
+        let shape = RoundedRectangle(cornerRadius: radius, style: .continuous)
+        return self.background(Theme.cardGradient, in: shape).overlay(shape.stroke(Theme.line, lineWidth: 1))
     }
 }

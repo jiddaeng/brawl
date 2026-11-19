@@ -30,6 +30,10 @@ final class DesignSnapshotUITests: XCTestCase {
         shot("01-home-top")
         app.swipeUp(); sleep(1)
         shot("02-home-middle")
+        app.swipeUp(); sleep(1)
+        shot("02b-home-detail")
+        app.swipeUp(); sleep(1)
+        shot("02c-home-boxes")
         app.swipeUp(); app.swipeUp(); sleep(1)
         shot("03-home-bottom")
 

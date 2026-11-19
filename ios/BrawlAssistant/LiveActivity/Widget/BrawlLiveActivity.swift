@@ -10,7 +10,7 @@ struct BrawlLiveActivity: Widget {
     var body: some WidgetConfiguration {
         ActivityConfiguration(for: BrawlActivityAttributes.self) { context in
             BrawlLockScreenView(state: context.state)
-                .activityBackgroundTint(Color.black)
+                .activityBackgroundTint(Theme.background2)
                 .activitySystemActionForegroundColor(Theme.text)
         } dynamicIsland: { context in
             let s = context.state
@@ -28,17 +28,17 @@ struct BrawlLiveActivity: Widget {
                 if s.isReady {
                     StackedPortraits(members: Array(s.members.prefix(3)), size: 22)
                 } else {
-                    Image(systemName: Theme.symbol).font(.system(size: 14, weight: .semibold)).foregroundStyle(Theme.secondaryText)
+                    Image(systemName: Theme.symbol).font(.system(size: 14, weight: .semibold)).foregroundStyle(Theme.accent)
                 }
             } compactTrailing: {
                 if s.isReady, let wr = s.winRate {
-                    WinRateText(value: wr, size: 15, highlight: true)
+                    WinRateText(value: wr, size: 16, highlight: true)
                 } else {
                     StatusGlyph(status: s.status).font(.system(size: 14, weight: .semibold))
                 }
             } minimal: {
                 if s.isReady, let wr = s.winRate {
-                    Text(wr).font(.system(size: 13, weight: .semibold, design: .rounded)).monospacedDigit()
+                    Text(wr).font(Theme.displayFixed(14))
                         .foregroundStyle(Theme.accent).minimumScaleFactor(0.7).lineLimit(1)
                 } else {
                     Image(systemName: Theme.symbol).font(.system(size: 13, weight: .semibold)).foregroundStyle(Theme.secondaryText)

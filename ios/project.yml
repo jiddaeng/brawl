@@ -45,6 +45,9 @@ targets:
       # 기존 Draft Room 추천 엔진 (웹과 같은 파일을 그대로 번들에 넣는다)
       - path: ../engine/draft-engine.js
         buildPhase: resources
+      # 웹 Draft Room 과 같은 글꼴 (OFL): Lilita One · Black Han Sans · JetBrains Mono
+      - path: BrawlAssistant/Resources/Fonts
+        buildPhase: resources
     dependencies:
       - package: BrawlCore
         product: BrawlCore
@@ -68,6 +71,7 @@ targets:
           UIColorName: ""
         UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait]
         UIUserInterfaceStyle: Dark
+        UIAppFonts: [LilitaOne-Regular.ttf, BlackHanSans-Regular.ttf, JetBrainsMono-Variable.ttf]
         NSSupportsLiveActivities: true
         # 게임 중 갱신은 푸시로 하므로 시간당 푸시 예산을 늘린다 (사용자가 설정에서 끌 수 있음)
         NSSupportsLiveActivitiesFrequentUpdates: true
@@ -90,6 +94,8 @@ targets:
       - path: BrawlAssistant/LiveActivity/BrawlActivityAttributes.swift
       - path: BrawlAssistant/Shared
       - path: BrawlAssistant/Design
+      - path: BrawlAssistant/Resources/Fonts
+        buildPhase: resources
     dependencies:
       - package: BrawlCore
         product: BrawlCore
@@ -105,6 +111,7 @@ targets:
         CFBundleShortVersionString: $(MARKETING_VERSION)
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         BrawlAppGroup: $(APP_GROUP_ID)
+        UIAppFonts: [LilitaOne-Regular.ttf, BlackHanSans-Regular.ttf, JetBrainsMono-Variable.ttf]
         NSExtension:
           NSExtensionPointIdentifier: com.apple.widgetkit-extension
     entitlements:

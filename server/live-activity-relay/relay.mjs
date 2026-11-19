@@ -35,8 +35,9 @@ export function validateRequest(body) {
   const checkMembers = (list, where) => {
     if (!Array.isArray(list) || list.length > 5) throw new RelayError(400, `${where} must be an array of up to 5`);
     for (const m of list) {
-      if (!m || typeof m !== 'object' || Object.keys(m).some(k => k !== 'id' && k !== 'name') || !Number.isInteger(m.id) || !isStr(m.name, 40))
-        throw new RelayError(400, `${where} entries must be {id, name}`);
+      if (!m || typeof m !== 'object' || Object.keys(m).some(k => !['id', 'name', 'rarity'].includes(k)) || !Number.isInteger(m.id) || !isStr(m.name, 40))
+        throw new RelayError(400, `${where} entries must be {id, name, rarity?}`);
+      if (m.rarity !== undefined && !(typeof m.rarity === 'string' && /^#[0-9a-fA-F]{6}$/.test(m.rarity))) throw new RelayError(400, `${where}.rarity must be #rrggbb`);
     }
   };
   checkMembers(cs.members, 'contentState.members');

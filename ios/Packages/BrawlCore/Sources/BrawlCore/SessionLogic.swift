@@ -93,7 +93,7 @@ public struct RankedTeam: Codable, Hashable, Sendable {
     }
 
     public init(team t: TeamResult) {
-        self.init(rank: t.rank, members: t.members.prefix(5).map { ActivityDisplayState.Member(id: $0.id, name: $0.ko) },
+        self.init(rank: t.rank, members: t.members.prefix(5).map { ActivityDisplayState.Member(id: $0.id, name: $0.ko, rarity: $0.rarity) },
                   winRate: t.estimatedWinRate, score: t.score)
     }
 }
@@ -103,7 +103,9 @@ public struct ActivityDisplayState: Codable, Hashable, Sendable {
     public struct Member: Codable, Hashable, Sendable {
         public var id: Int
         public var name: String
-        public init(id: Int, name: String) { self.id = id; self.name = name }
+        /// 희귀도 색 "#rrggbb" (초상화 테두리)
+        public var rarity: String?
+        public init(id: Int, name: String, rarity: String? = nil) { self.id = id; self.name = name; self.rarity = rarity }
     }
     public var status: AnalysisStatus
     public var mapName: String?
@@ -135,7 +137,7 @@ public struct ActivityDisplayState: Codable, Hashable, Sendable {
         message = session.message
         if !session.status.hidesRecommendation, let rec = session.recommendation {
             mapName = rec.mapName; modeName = rec.gameMode
-            members = rec.brawlers.prefix(5).map { Member(id: $0.id, name: $0.ko) }
+            members = rec.brawlers.prefix(5).map { Member(id: $0.id, name: $0.ko, rarity: $0.rarity) }
             score = rec.score; winRate = rec.estimatedWinRate
             teams = rec.topTeams
         } else if let r = session.recognition, let m = r.recognizedMode {
@@ -145,7 +147,7 @@ public struct ActivityDisplayState: Codable, Hashable, Sendable {
 
     /// 수동으로 고른 맵의 추천
     public init(manual rec: Recommendation) {
-        self.init(status: .ready, mapName: rec.mapName, modeName: rec.gameMode, members: rec.brawlers.prefix(5).map { Member(id: $0.id, name: $0.ko) }, score: rec.score, winRate: rec.estimatedWinRate, updatedAt: rec.updatedAt, teams: rec.topTeams)
+        self.init(status: .ready, mapName: rec.mapName, modeName: rec.gameMode, members: rec.brawlers.prefix(5).map { Member(id: $0.id, name: $0.ko, rarity: $0.rarity) }, score: rec.score, winRate: rec.estimatedWinRate, updatedAt: rec.updatedAt, teams: rec.topTeams)
     }
 
     /// 갱신 판단용 키 (시각 제외, 보이는 내용만)

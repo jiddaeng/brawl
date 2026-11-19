@@ -14,10 +14,14 @@ struct IslandHeader: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 1) {
             Text(state.mapName ?? state.status.title)
-                .font(.system(size: 15, weight: .semibold)).foregroundStyle(Theme.text)
+                .font(Theme.koFixed(17)).foregroundStyle(Theme.text)
                 .lineLimit(1).minimumScaleFactor(0.8)
-            Text(state.modeName ?? "Brawl Assistant")
-                .font(.system(size: 12)).foregroundStyle(Theme.secondaryText).lineLimit(1)
+            HStack(spacing: 5) {
+                Text("DRAFT ROOM").font(Theme.displayFixed(11)).foregroundStyle(Theme.goldGradient)
+                if let mode = state.modeName {
+                    Text(mode).font(Theme.koFixed(11)).foregroundStyle(Theme.secondaryText).lineLimit(1)
+                }
+            }
         }
         .padding(.leading, 4)
     }
@@ -28,8 +32,8 @@ struct IslandColumnLabel: View {
     let state: ActivityDisplayState
     var body: some View {
         if state.isReady {
-            Text("추정 승률").font(.system(size: 11, weight: .medium)).foregroundStyle(Theme.secondaryText)
-                .frame(maxHeight: .infinity, alignment: .bottom).padding(.trailing, 4)
+            Text("추정 승률").font(Theme.koFixed(11)).foregroundStyle(Theme.secondaryText)
+                .frame(maxHeight: .infinity, alignment: .bottom).padding(.trailing, 6)
         } else {
             StatusGlyph(status: state.status).font(.system(size: 18, weight: .semibold)).padding(.trailing, 8)
         }
@@ -42,10 +46,10 @@ struct IslandRanking: View {
     var body: some View {
         Group {
             if state.isReady {
-                RankingList(teams: state.rankedTeams, portrait: 24, rowSpacing: 6)
+                RankingList(teams: state.rankedTeams, portrait: 22, rowSpacing: 4)
             } else {
                 VStack(alignment: .leading, spacing: 4) {
-                    Text(state.status.title).font(.system(size: 15, weight: .semibold))
+                    Text(state.status.title).font(Theme.koFixed(16))
                         .foregroundStyle(state.status.isError ? Theme.error : Theme.text)
                     if let m = state.message {
                         Text(m).font(.system(size: 13)).foregroundStyle(Theme.secondaryText).lineLimit(2)
@@ -65,21 +69,22 @@ struct IslandRanking: View {
 struct BrawlLockScreenView: View {
     let state: ActivityDisplayState
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack(alignment: .firstTextBaseline, spacing: 6) {
-                Image(systemName: Theme.symbol).font(.system(size: 12, weight: .semibold)).foregroundStyle(Theme.accent)
-                Text(state.mapName ?? "Brawl Assistant").font(.system(size: 15, weight: .semibold)).foregroundStyle(Theme.text).lineLimit(1)
-                if let mode = state.modeName { Text(mode).font(.system(size: 13)).foregroundStyle(Theme.secondaryText).lineLimit(1) }
-                Spacer(minLength: 8)
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(alignment: .lastTextBaseline, spacing: 6) {
+                Text("DRAFT ROOM").font(Theme.displayFixed(13)).foregroundStyle(Theme.goldGradient)
+                    .shadow(color: Theme.goldShadow, radius: 0, x: 0, y: 1.5)
+                Text(state.mapName ?? "Brawl Assistant").font(Theme.koFixed(16)).foregroundStyle(Theme.text).lineLimit(1)
+                if let mode = state.modeName { Text(mode).font(Theme.koFixed(12)).foregroundStyle(Theme.secondaryText).lineLimit(1) }
+                Spacer(minLength: 6)
                 if state.isReady {
-                    Text("추정 승률").font(.system(size: 11, weight: .medium)).foregroundStyle(Theme.secondaryText)
+                    Text("추정 승률").font(Theme.koFixed(11)).foregroundStyle(Theme.secondaryText)
                 } else {
-                    Text(state.status.title).font(.system(size: 12, weight: .semibold))
+                    Text(state.status.title).font(Theme.koFixed(12))
                         .foregroundStyle(state.status.isError ? Theme.error : Theme.secondaryText)
                 }
             }
             if state.isReady {
-                RankingList(teams: state.rankedTeams, portrait: 26, rowSpacing: 6)
+                RankingList(teams: state.rankedTeams, portrait: 24, rowSpacing: 4)
             } else if let m = state.message {
                 Text(m).font(.system(size: 13)).foregroundStyle(Theme.secondaryText).lineLimit(2)
             }
@@ -90,7 +95,7 @@ struct BrawlLockScreenView: View {
 
 // MARK: - 순위 리스트
 
-/// 한 줄: 순위 · 캐릭터(초상화 + 이름) · 오른쪽 추정 승률. 1위 승률만 강조색
+/// 한 줄 (웹 .alt 축소판): 순위(Lilita) · 캐릭터(희귀도 테두리 초상화 + 이름) · 오른쪽 추정 승률. 1위 줄은 금색 테두리
 struct RankingList: View {
     let teams: [RankedTeam]
     let portrait: CGFloat
@@ -98,16 +103,28 @@ struct RankingList: View {
 
     var body: some View {
         VStack(spacing: rowSpacing) {
-            ForEach(teams, id: \.rank) { t in
-                HStack(spacing: 8) {
-                    Text("\(t.rank)").font(.system(size: 12, weight: .semibold).monospacedDigit())
-                        .foregroundStyle(t.rank == 1 ? Theme.text : Theme.secondaryText).frame(width: 12)
-                    TeamMembersInline(members: t.members, portrait: portrait)
-                    Spacer(minLength: 6)
-                    WinRateText(value: t.winRate, size: 16, highlight: t.rank == 1)
-                }
-            }
+            ForEach(teams, id: \.rank) { t in RankingRow(team: t, portrait: portrait) }
         }
+    }
+}
+
+struct RankingRow: View {
+    let team: RankedTeam
+    let portrait: CGFloat
+    private var best: Bool { team.rank == 1 }
+
+    var body: some View {
+        let shape = RoundedRectangle(cornerRadius: 9, style: .continuous)
+        HStack(spacing: 7) {
+            Text("\(team.rank)").font(Theme.displayFixed(16))
+                .foregroundStyle(best ? Theme.accent : Theme.secondaryText).frame(width: 12)
+            TeamMembersInline(members: team.members, portrait: portrait)
+            Spacer(minLength: 4)
+            WinRateText(value: team.winRate, size: 17, highlight: best)
+        }
+        .padding(.horizontal, 7).padding(.vertical, 2)
+        .background(Theme.deep.opacity(0.9), in: shape)
+        .overlay(shape.stroke(best ? Theme.accent.opacity(0.9) : Theme.line, lineWidth: 1))
     }
 }
 
@@ -120,9 +137,9 @@ struct TeamMembersInline: View {
         HStack(spacing: showNames ? 8 : 3) {
             ForEach(members, id: \.id) { m in
                 HStack(spacing: 4) {
-                    MiniPortrait(id: m.id, size: showNames ? portrait : portrait - 4, circle: true)
+                    MiniPortrait(id: m.id, size: showNames ? portrait : portrait - 4, rarity: m.rarity)
                     if showNames {
-                        Text(m.name).font(.system(size: 12, weight: .medium)).foregroundStyle(Theme.text)
+                        Text(m.name).font(Theme.koFixed(12)).foregroundStyle(Theme.text)
                             .lineLimit(1).minimumScaleFactor(0.75)
                     }
                 }
@@ -138,9 +155,9 @@ struct WinRateText: View {
     let highlight: Bool
     var body: some View {
         HStack(alignment: .firstTextBaseline, spacing: 1) {
-            Text(value).font(.system(size: size, weight: .semibold, design: .rounded)).monospacedDigit()
+            Text(value).font(Theme.displayFixed(size))
                 .foregroundStyle(highlight ? Theme.accent : Theme.text)
-            Text("%").font(.system(size: max(11, size * 0.65), weight: .medium)).foregroundStyle(Theme.secondaryText)
+            Text("%").font(Theme.displayFixed(max(11, size * 0.62))).foregroundStyle(Theme.secondaryText)
         }
         .lineLimit(1)
         .fixedSize()
@@ -156,8 +173,8 @@ struct StackedPortraits: View {
     var body: some View {
         HStack(spacing: -size * 0.35) {
             ForEach(members, id: \.id) { m in
-                MiniPortrait(id: m.id, size: size, circle: true)
-                    .overlay(Circle().stroke(Color.black, lineWidth: 1.5))
+                MiniPortrait(id: m.id, size: size, rarity: m.rarity, circle: true)
+                    .overlay(Circle().stroke(Color.black, lineWidth: 1))
             }
         }
     }
@@ -184,20 +201,24 @@ extension AnalysisStatus {
 }
 
 /// 앱이 App Group 에 저장한 96px 초상화 (Live Activity 는 네트워크 이미지를 불러올 수 없다)
+/// 희귀도 색 빛 바탕 + 같은 색 테두리 (웹 .br 축소판)
 struct MiniPortrait: View {
     let id: Int
     let size: CGFloat
+    var rarity: String? = nil
     var circle = false
     var body: some View {
-        Group {
+        let rc = Theme.rarity(rarity)
+        let shape = RoundedRectangle(cornerRadius: circle ? size / 2 : size * 0.28, style: .continuous)
+        ZStack {
+            Theme.deep
+            RadialGradient(colors: [rc.opacity(0.8), .clear], center: UnitPoint(x: 0.5, y: 0.35), startRadius: 0, endRadius: size * 0.7)
             if let path = AppGroup.store?.portraitURL(brawlerID: id).path, let img = UIImage(contentsOfFile: path) {
-                Image(uiImage: img).resizable().scaledToFill()
-            } else {
-                Theme.secondaryBackground
+                Image(uiImage: img).resizable().scaledToFit().padding(1)
             }
         }
         .frame(width: size, height: size)
-        .background(Theme.secondaryBackground)
-        .clipShape(RoundedRectangle(cornerRadius: circle ? size / 2 : size * 0.25, style: .continuous))
+        .clipShape(shape)
+        .overlay(shape.stroke(rc, lineWidth: 1.2))
     }
 }

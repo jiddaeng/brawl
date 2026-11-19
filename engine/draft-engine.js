@@ -337,7 +337,7 @@ var DraftEngine={
   // 현재 맵 풀(웹의 inPool 과 같은 기준)과 브롤러 목록. 화면 인식용 이름 사전도 여기서 만든다
   catalog(){return {window:DATA.window||null,hasLive:!!DATA.hasLive,
     maps:DATA.maps.filter(inPool).map(m=>({id:m.id,name:m.name,ko:mapKo(m),mode:m.mode,modeKo:mko(m.mode),ranked:RANKED.includes(m.mode),size:modeProfile(m.mode).size,live:!!m.live,isNew:!!m.isNew,bt:m.bt||null,images:mapImgs(m)})),
-    brawlers:DATA.brawlers.map(b=>({id:b.id,name:b.name,ko:ko(b),img:b.img,position:b.prof.p,estimatedProfile:!!b.prof.auto}))}},
+    brawlers:DATA.brawlers.map(b=>({id:b.id,name:b.name,ko:ko(b),img:b.img,rarity:b.rarity,position:b.prof.p,estimatedProfile:!!b.prof.auto}))}},
   // 맵 이미지 픽셀(RGBA) → 맵 특성. 웹의 analyzeImage 와 같은 analyzePixels 를 쓴다
   analyzePixels(data,W,H){return featSummary(analyzePixels(data,W,H))},
   fallbackFeat(mode){return fallbackFeat(mode)},
@@ -351,7 +351,7 @@ var DraftEngine={
     const mp=modeProfile(m.mode),dm=demands(feat,mp);
     const R=solve(mp,dm);
     // 화면 표시 문자열도 웹(brCard·결과 카드)과 같은 식으로 여기서 만든다. 호스트(iOS·Android)는 다시 포맷하지 않는다
-    const card=b=>({id:b.id,name:b.name,ko:ko(b),img:b.img,position:b.prof.p,positionKo:POSN[b.prof.p],estimatedProfile:!!b.prof.auto,eff:b.eff==null?null:b.eff,
+    const card=b=>({id:b.id,name:b.name,ko:ko(b),img:b.img,rarity:b.rarity,position:b.prof.p,positionKo:POSN[b.prof.p],estimatedProfile:!!b.prof.auto,eff:b.eff==null?null:b.eff,
       effPct:b.eff==null?null:`${b.eff>=0?'+':''}${(b.eff*100).toFixed(1)}`});
     const teams=R.list.map((o,i)=>{
       const roles=assignRoles(o.team,mp),order=draftOrder(o.team,dm);

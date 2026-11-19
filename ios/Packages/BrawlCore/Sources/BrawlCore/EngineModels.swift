@@ -62,6 +62,8 @@ public struct CatalogBrawler: Codable, Hashable, Sendable, Identifiable {
     public var name: String
     public var ko: String
     public var img: String?
+    /// 희귀도 색 (Brawlify, 예: "#b9eaff"). 웹 브롤러 카드 테두리·배경색
+    public var rarity: String?
     public var position: String
     public var estimatedProfile: Bool
 }
@@ -143,6 +145,8 @@ public struct TeamMember: Codable, Hashable, Sendable, Identifiable {
     public var name: String
     public var ko: String
     public var img: String?
+    /// 희귀도 색 (웹 브롤러 카드와 같은 테두리·배경색)
+    public var rarity: String?
     public var position: String
     public var positionKo: String
     public var estimatedProfile: Bool
