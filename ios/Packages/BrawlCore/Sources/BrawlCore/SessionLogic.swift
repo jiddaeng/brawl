@@ -150,8 +150,18 @@ public struct ActivityDisplayState: Codable, Hashable, Sendable {
 
     /// 갱신 판단용 키 (시각 제외, 보이는 내용만)
     public var contentKey: String {
-        [status.rawValue, mapName ?? "", modeName ?? "", members.map { String($0.id) }.joined(separator: ","), score.map(String.init) ?? "", winRate ?? "", message ?? "",
-         (teams ?? []).map { "\($0.members.map { String($0.id) }.joined(separator: ",")):\($0.winRate)" }.joined(separator: ";")].joined(separator: "|")
+        // 여러 단계로 나눈다 (한 식으로 쓰면 일부 Swift 컴파일러가 타입 검사 시간 초과)
+        let memberIDs: String = members.map { String($0.id) }.joined(separator: ",")
+        let teamParts: [String] = (teams ?? []).map { t -> String in
+            let ids: String = t.members.map { String($0.id) }.joined(separator: ",")
+            return ids + ":" + t.winRate
+        }
+        var parts: [String] = [status.rawValue, mapName ?? "", modeName ?? "", memberIDs]
+        parts.append(score.map { String($0) } ?? "")
+        parts.append(winRate ?? "")
+        parts.append(message ?? "")
+        parts.append(teamParts.joined(separator: ";"))
+        return parts.joined(separator: "|")
     }
 }
 
