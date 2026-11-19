@@ -19,6 +19,13 @@ settings:
     SWIFT_VERSION: "5.0"
     TARGETED_DEVICE_FAMILY: "1"          # iPhone 전용
     CODE_SIGN_STYLE: Automatic
+    # 게임 중(앱 백그라운드) Live Activity 갱신용 푸시 중계 서버 (server/live-activity-relay). 비우면 게임 중 갱신 없음
+    PUSH_RELAY_URL: ""
+  configs:
+    Debug:
+      APS_ENVIRONMENT: development
+    Release:
+      APS_ENVIRONMENT: production
 
 packages:
   BrawlCore:
@@ -62,12 +69,18 @@ targets:
         UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait]
         UIUserInterfaceStyle: Dark
         NSSupportsLiveActivities: true
+        # 게임 중 갱신은 푸시로 하므로 시간당 푸시 예산을 늘린다 (사용자가 설정에서 끌 수 있음)
+        NSSupportsLiveActivitiesFrequentUpdates: true
         BrawlAppGroup: $(APP_GROUP_ID)
         BrawlBroadcastExtensionBundleID: $(APP_BUNDLE_ID).broadcast
+        BrawlPushRelayURL: $(PUSH_RELAY_URL)
+        BrawlAPSEnvironment: $(APS_ENVIRONMENT)
     entitlements:
       path: BrawlAssistant/Resources/BrawlAssistant.entitlements
       properties:
         com.apple.security.application-groups: [$(APP_GROUP_ID)]
+        # ActivityKit 푸시 토큰을 받으려면 필요 (Apple Developer 의 App ID 에 Push Notifications 기능)
+        aps-environment: $(APS_ENVIRONMENT)
 
   BrawlAssistantWidget:
     type: app-extension
@@ -123,6 +136,8 @@ targets:
         CFBundleShortVersionString: $(MARKETING_VERSION)
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         BrawlAppGroup: $(APP_GROUP_ID)
+        BrawlPushRelayURL: $(PUSH_RELAY_URL)
+        BrawlAPSEnvironment: $(APS_ENVIRONMENT)
         NSExtension:
           NSExtensionPointIdentifier: com.apple.broadcast-services-upload
           NSExtensionPrincipalClass: $(PRODUCT_MODULE_NAME).SampleHandler

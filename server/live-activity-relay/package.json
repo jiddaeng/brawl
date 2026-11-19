@@ -1,0 +1,9 @@
+{
+  "name": "brawl-assistant-live-activity-relay",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Brawl Assistant: 방송 확장이 보낸 표시 값을 APNs ActivityKit 푸시로 전달 (의존성 없음)",
+  "engines": { "node": ">=20" },
+  "scripts": { "start": "node server.mjs", "test": "node --test" }
+}

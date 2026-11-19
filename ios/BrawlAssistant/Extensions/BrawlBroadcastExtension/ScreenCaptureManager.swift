@@ -14,7 +14,7 @@ final class ScreenCaptureManager {
     private var sampler = FrameSampler(minInterval: 1.0, maxInterval: 8, changeThreshold: 4)
     private var paused = false
     private let analyzer = FrameAnalyzer()
-    private let recognizer = GameScreenRecognizer()
+    private lazy var recognizer = GameScreenRecognizer(queue: analysisQueue)
     private let darwin = DarwinObserver()
     private var heartbeat: DispatchSourceTimer?
     private let log = Logger(subsystem: "BrawlAssistant.Broadcast", category: "capture")

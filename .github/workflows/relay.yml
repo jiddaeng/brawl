@@ -1,0 +1,14 @@
+name: Live Activity relay
+on:
+  push:
+    branches: ['main', 'claude/**']
+    paths: ['server/**', 'tests/app-fixtures/relay-request-ios.json', '.github/workflows/relay.yml']
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+      - run: node --test server/live-activity-relay/relay.test.mjs

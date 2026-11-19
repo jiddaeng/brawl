@@ -33,9 +33,14 @@ struct HomeViewModel {
 
     /// 기기 검증용: 방송 확장이 Dynamic Island 를 직접 갱신했는지
     var extensionActivityLine: String? {
-        guard let u = app.store?.read(ExtensionActivityUpdate.self, .extensionActivity) else { return nil }
-        return u.succeeded ? "Dynamic Island: 방송 확장이 직접 갱신 (\(u.at.formatted(date: .omitted, time: .standard)))"
-                           : "Dynamic Island: 확장 갱신 불가 → 앱이 열릴 때 갱신 (\(u.error ?? ""))"
+        guard let u = app.store?.read(ExtensionActivityUpdate.self, .extensionActivity) else {
+            return AppGroup.pushRelayURL == nil ? "게임 중 Dynamic Island 갱신에는 푸시 중계 서버 설정이 필요합니다 (ios/README.md)" : nil
+        }
+        let time = u.at.formatted(date: .omitted, time: .standard)
+        if u.succeeded {
+            return u.path == .relay ? "Dynamic Island: 푸시 중계로 갱신 요청 성공 (\(time))" : "Dynamic Island: 방송 확장이 직접 갱신 (\(time))"
+        }
+        return "Dynamic Island: 게임 중 갱신 실패, 앱이 열릴 때 갱신 (\(u.error ?? "")) (\(time))"
     }
 
     var isFirstRun: Bool { !UserDefaults.standard.bool(forKey: "onboarding.done") }

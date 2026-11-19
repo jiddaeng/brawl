@@ -123,11 +123,18 @@ public struct AnalysisSession: Codable, Hashable, Sendable {
 
 /// 방송 확장이 Live Activity 를 직접 갱신한 결과 (기기 검증·진단용, 세션과 별도 파일)
 public struct ExtensionActivityUpdate: Codable, Hashable, Sendable {
+    /// 갱신 경로
+    public enum Path: String, Codable, Sendable {
+        case direct  // 방송 확장에서 ActivityKit 직접 갱신 (실기기에서는 확장에 Live Activity 가 보이지 않아 실패함)
+        case relay   // 중계 서버 → APNs ActivityKit 푸시
+        case none
+    }
     public var contentKey: String
     public var succeeded: Bool
     public var error: String?
     public var at: Date
-    public init(contentKey: String, succeeded: Bool, error: String?, at: Date) {
-        self.contentKey = contentKey; self.succeeded = succeeded; self.error = error; self.at = at
+    public var path: Path?
+    public init(contentKey: String, succeeded: Bool, error: String?, at: Date, path: Path? = nil) {
+        self.contentKey = contentKey; self.succeeded = succeeded; self.error = error; self.at = at; self.path = path
     }
 }

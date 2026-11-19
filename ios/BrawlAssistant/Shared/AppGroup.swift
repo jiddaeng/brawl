@@ -12,6 +12,17 @@ enum AppGroup {
         return SharedStore(root: url.appendingPathComponent("BrawlAssistant", isDirectory: true))
     }
 
+    /// Live Activity 푸시 중계 서버 주소 (Info.plist BrawlPushRelayURL ← project.yml PUSH_RELAY_URL). 비어 있으면 사용 안 함
+    static var pushRelayURL: String? {
+        guard let s = Bundle.main.object(forInfoDictionaryKey: "BrawlPushRelayURL") as? String, !s.isEmpty, !s.contains("$(") else { return nil }
+        return s
+    }
+
+    /// APNs 환경: Xcode 로 설치한 개발 빌드는 development, TestFlight·App Store 는 production
+    static var apsEnvironment: String {
+        (Bundle.main.object(forInfoDictionaryKey: "BrawlAPSEnvironment") as? String) ?? "development"
+    }
+
     /// 방송 확장 번들 id (RPSystemBroadcastPickerView.preferredExtension)
     static var broadcastExtensionBundleID: String? {
         Bundle.main.object(forInfoDictionaryKey: "BrawlBroadcastExtensionBundleID") as? String

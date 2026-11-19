@@ -38,6 +38,7 @@ final class AppState: ObservableObject {
 
     init() {
         store = AppGroup.store
+        liveActivity.store = store
         #if DEBUG
         if loadDemoIfRequested() { return }
         #endif
