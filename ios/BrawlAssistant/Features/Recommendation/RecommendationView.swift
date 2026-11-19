@@ -2,6 +2,7 @@ import SwiftUI
 import BrawlCore
 
 /// BEST TEAM 카드. 값은 모두 엔진 결과 그대로 (점수·추정 승률·근거·역할·픽 순서·표시 문자열)
+/// 디자인: 바탕·라벨은 무채색, 색은 브롤러 아트(순간)와 종합 점수(강조색 하나)에만. 글자는 Dynamic Type 텍스트 스타일
 struct RecommendationView: View {
     let recommendation: Recommendation
     let result: EngineResult?
@@ -10,32 +11,30 @@ struct RecommendationView: View {
     private var many: Bool { recommendation.brawlers.count > 3 }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 20) {
+        VStack(alignment: .leading, spacing: 24) {
             // 맵 · 모드
-            HStack(alignment: .top, spacing: 12) {
-                VStack(alignment: .leading, spacing: 3) {
-                    Text(recommendation.mapName).font(.system(size: 22, weight: .bold)).foregroundStyle(Theme.text)
-                    Text("\(recommendation.gameMode) · \(recommendation.mapNameEn)").font(.system(size: 13)).foregroundStyle(Theme.secondaryText)
-                }
-                Spacer(minLength: 0)
-                Text(recommendation.archetype)
-                    .font(.system(size: 11, weight: .semibold)).foregroundStyle(Theme.secondaryText)
-                    .padding(.horizontal, 8).padding(.vertical, 4)
-                    .background(Theme.secondaryBackground, in: Capsule())
+            VStack(alignment: .leading, spacing: 4) {
+                Text(recommendation.mapName).font(.title2.weight(.semibold)).foregroundStyle(Theme.text)
+                Text("\(recommendation.gameMode), \(recommendation.mapNameEn)").font(.subheadline).foregroundStyle(Theme.secondaryText)
             }
 
-            // BEST TEAM
+            // BEST TEAM: 화면의 '순간' (브롤러 아트가 색을 담당)
             VStack(alignment: .leading, spacing: 12) {
-                Text("BEST TEAM").font(.system(size: 12, weight: .heavy)).tracking(2).foregroundStyle(Theme.accent)
-                HStack(alignment: .top, spacing: many ? 6 : 10) {
+                HStack(alignment: .firstTextBaseline) {
+                    Text("BEST TEAM").font(.footnote.weight(.semibold)).foregroundStyle(Theme.secondaryText)
+                    Spacer()
+                    Text(recommendation.archetype).font(.footnote).foregroundStyle(Theme.secondaryText)
+                }
+                HStack(alignment: .top, spacing: many ? 4 : 12) {
                     ForEach(recommendation.brawlers) { b in
-                        BrawlerCell(member: b, store: store, size: many ? 52 : 80).frame(maxWidth: .infinity)
+                        BrawlerCell(member: b, store: store, size: many ? 56 : 88).frame(maxWidth: .infinity)
                     }
                 }
             }
 
-            // 점수
+            // 점수: 강조색은 종합 점수 하나
             VStack(alignment: .leading, spacing: 8) {
+                Hairline()
                 HStack(spacing: 0) {
                     Metric(title: "종합 점수", value: "\(recommendation.score)", suffix: "/100", highlight: true)
                     MetricDivider()
@@ -45,37 +44,41 @@ struct RecommendationView: View {
                         Metric(title: "시뮬레이션", value: r.countText, suffix: "조합")
                     }
                 }
-                .padding(.vertical, 12)
-                .background(Theme.secondaryBackground, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
-                Text("종합 점수·추정 승률은 Draft Room 엔진의 계산값이며 공식 통계가 아닙니다.")
-                    .font(.system(size: 11)).foregroundStyle(Theme.secondaryText)
+                .padding(.vertical, 8)
+                Hairline()
+                Text("종합 점수와 추정 승률은 Draft Room 엔진의 계산값이며 공식 통계가 아닙니다")
+                    .font(.caption).foregroundStyle(Theme.secondaryText)
             }
 
             // 추천 근거
-            VStack(alignment: .leading, spacing: 10) {
-                Text("추천 근거").font(.system(size: 15, weight: .semibold)).foregroundStyle(Theme.text)
-                ForEach(Array(recommendation.reasons.enumerated()), id: \.offset) { _, r in
-                    HStack(alignment: .firstTextBaseline, spacing: 8) {
-                        Circle().fill(Theme.secondaryText).frame(width: 3, height: 3).offset(y: -3)
-                        Text(r).font(.system(size: 14)).foregroundStyle(Theme.secondaryText)
-                            .lineSpacing(2).fixedSize(horizontal: false, vertical: true)
+            VStack(alignment: .leading, spacing: 12) {
+                Text("추천 근거").font(.headline).foregroundStyle(Theme.text)
+                VStack(alignment: .leading, spacing: 8) {
+                    ForEach(Array(recommendation.reasons.enumerated()), id: \.offset) { _, r in
+                        HStack(alignment: .firstTextBaseline, spacing: 8) {
+                            Text("•").font(.subheadline).foregroundStyle(Theme.secondaryText)
+                            Text(r).font(.subheadline).foregroundStyle(Theme.secondaryText)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
                     }
                 }
             }
 
             // 다른 순위
             if let r = result, r.teams.count > 1 {
-                VStack(alignment: .leading, spacing: 0) {
-                    Text("다른 순위").font(.system(size: 15, weight: .semibold)).foregroundStyle(Theme.text).padding(.bottom, 8)
-                    ForEach(r.teams.dropFirst(), id: \.rank) { t in
-                        HStack(spacing: 10) {
-                            Text("\(t.rank)").font(.system(size: 13, weight: .semibold).monospacedDigit()).foregroundStyle(Theme.secondaryText).frame(width: 18, alignment: .leading)
-                            Text(t.members.map(\.ko).joined(separator: " · ")).font(.system(size: 14)).foregroundStyle(Theme.text).lineLimit(1)
-                            Spacer(minLength: 8)
-                            Text("\(t.score)").font(.system(size: 14, weight: .semibold).monospacedDigit()).foregroundStyle(Theme.text)
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("다른 순위").font(.headline).foregroundStyle(Theme.text)
+                    VStack(spacing: 0) {
+                        ForEach(r.teams.dropFirst(), id: \.rank) { t in
+                            HStack(spacing: 12) {
+                                Text("\(t.rank)").font(.subheadline.monospacedDigit()).foregroundStyle(Theme.secondaryText).frame(width: 20, alignment: .leading)
+                                Text(t.members.map(\.ko).joined(separator: ", ")).font(.subheadline).foregroundStyle(Theme.text).lineLimit(1)
+                                Spacer(minLength: 8)
+                                Text("\(t.score)").font(.subheadline.weight(.semibold).monospacedDigit()).foregroundStyle(Theme.text)
+                            }
+                            .frame(minHeight: 44)
+                            if t.rank != r.teams.last?.rank { Hairline() }
                         }
-                        .frame(height: 40)
-                        if t.rank != r.teams.last?.rank { Rectangle().fill(Theme.divider).frame(height: 0.5) }
                     }
                 }
             }
@@ -86,27 +89,42 @@ struct RecommendationView: View {
 struct BrawlerCell: View {
     let member: TeamMember
     let store: SharedStore?
-    var size: CGFloat = 80
+    var size: CGFloat = 88
 
     var body: some View {
-        VStack(spacing: 6) {
+        VStack(spacing: 8) {
             BrawlerPortrait(id: member.id, url: member.img, store: store)
                 .frame(width: size, height: size)
-            Text(member.ko).font(.system(size: size > 60 ? 15 : 13, weight: .bold)).foregroundStyle(Theme.text)
-                .lineLimit(1).minimumScaleFactor(0.7)
-            if let role = member.role {
-                Text(role).font(.system(size: 11)).foregroundStyle(Theme.secondaryText).lineLimit(1).minimumScaleFactor(0.7)
-            }
-            HStack(spacing: 4) {
-                if let p = member.pick { Text("\(p)픽").foregroundStyle(Theme.secondaryText) }
+                // 고유 디테일: 드래프트 픽 순서 태그 (웹 Draft Room 의 픽 배지)
+                .overlay(alignment: .topLeading) {
+                    if let p = member.pick { PickTag(pick: p).padding(4) }
+                }
+            VStack(spacing: 2) {
+                Text(member.ko).font(size > 64 ? .subheadline.weight(.semibold) : .footnote.weight(.semibold))
+                    .foregroundStyle(Theme.text).lineLimit(1).minimumScaleFactor(0.7)
+                if let role = member.role {
+                    Text(role).font(.caption).foregroundStyle(Theme.secondaryText).lineLimit(1).minimumScaleFactor(0.7)
+                }
                 if let e = member.eff, let text = member.effPct {
                     // 표시 문자열은 엔진(웹과 같은 toFixed) 값 그대로
-                    Text("\(text)%p").foregroundStyle(e >= 0 ? Theme.positive : Theme.error)
+                    Text("실전 \(text)%p").font(.caption.monospacedDigit())
+                        .foregroundStyle(e >= 0 ? Theme.positive : Theme.error)
                 }
+                if member.estimatedProfile { Text("추정 프로필").font(.caption).foregroundStyle(Theme.secondaryText) }
             }
-            .font(.system(size: 11, weight: .medium).monospacedDigit())
-            if member.estimatedProfile { Text("추정 프로필").font(.system(size: 10)).foregroundStyle(Theme.secondaryText) }
         }
+    }
+}
+
+/// 픽 순서 태그 (작은 키캡)
+struct PickTag: View {
+    let pick: Int
+    var body: some View {
+        Text("\(pick)픽")
+            .font(.caption2.weight(.semibold).monospacedDigit())
+            .foregroundStyle(Theme.text)
+            .padding(.horizontal, 4).padding(.vertical, 2)
+            .background(Color.black.opacity(0.72), in: RoundedRectangle(cornerRadius: 4, style: .continuous))
     }
 }
 
@@ -138,11 +156,11 @@ struct Metric: View {
     var body: some View {
         VStack(spacing: 4) {
             HStack(alignment: .firstTextBaseline, spacing: 2) {
-                Text(value).font(.system(size: 24, weight: .bold, design: .rounded).monospacedDigit())
+                Text(value).font(.title2.weight(.semibold).monospacedDigit())
                     .foregroundStyle(highlight ? Theme.accent : Theme.text).lineLimit(1).minimumScaleFactor(0.6)
-                Text(suffix).font(.system(size: 11, weight: .medium)).foregroundStyle(Theme.secondaryText)
+                Text(suffix).font(.caption).foregroundStyle(Theme.secondaryText)
             }
-            Text(title).font(.system(size: 11)).foregroundStyle(Theme.secondaryText)
+            Text(title).font(.caption).foregroundStyle(Theme.secondaryText)
         }
         .frame(maxWidth: .infinity)
     }
@@ -150,4 +168,9 @@ struct Metric: View {
 
 struct MetricDivider: View {
     var body: some View { Rectangle().fill(Theme.divider).frame(width: 0.5, height: 32) }
+}
+
+/// 얇은 구분선 (무채색)
+struct Hairline: View {
+    var body: some View { Rectangle().fill(Theme.divider).frame(height: 0.5) }
 }

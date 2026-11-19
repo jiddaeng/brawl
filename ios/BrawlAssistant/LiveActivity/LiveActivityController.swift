@@ -91,7 +91,7 @@ final class LiveActivityController: ObservableObject {
         Task {
             for a in acts {
                 let content = state.map { ActivityContent(state: $0, staleDate: nil) }
-                await a.end(content, dismissalPolicy: immediately ? .immediate : .after(Date().addingTimeInterval(10 * 60)))
+                await a.end(content, dismissalPolicy: immediately ? .immediate : .after(Date().addingTimeInterval(15 * 60)))
             }
         }
         policy.reset()

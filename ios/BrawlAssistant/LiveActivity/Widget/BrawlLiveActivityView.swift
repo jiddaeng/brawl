@@ -6,93 +6,94 @@ extension ActivityDisplayState {
     var isReady: Bool { status == .ready && !members.isEmpty }
 }
 
-// MARK: - Dynamic Island 펼침
+// MARK: - Dynamic Island 펼침 (너비 371~408pt, 높이 84~160pt)
 
 /// 왼쪽 위: 앱 이름 · 현재 맵 · 모드
 struct IslandHeader: View {
     let state: ActivityDisplayState
     var body: some View {
         VStack(alignment: .leading, spacing: 2) {
-            Text("BRAWL ASSISTANT")
-                .font(.system(size: 10, weight: .heavy)).tracking(1.2)
+            Text("Brawl Assistant")
+                .font(.system(size: 12, weight: .medium))
                 .foregroundStyle(Theme.secondaryText)
             Text(state.mapName ?? state.status.title)
-                .font(.system(size: 16, weight: .bold))
+                .font(.system(size: 17, weight: .semibold))
                 .foregroundStyle(Theme.text)
                 .lineLimit(1).minimumScaleFactor(0.8)
             if let mode = state.modeName {
-                Text(mode).font(.system(size: 12)).foregroundStyle(Theme.secondaryText).lineLimit(1)
+                Text(mode).font(.system(size: 13)).foregroundStyle(Theme.secondaryText).lineLimit(1)
             }
         }
         .padding(.leading, 4)
     }
 }
 
-/// 오른쪽 위: 종합 점수 (추천 완료일 때만)
+/// 오른쪽 위: 종합 점수 (축소형의 오른쪽과 같은 자리)
 struct IslandScore: View {
     let state: ActivityDisplayState
     var body: some View {
         if state.isReady, let score = state.score {
             VStack(alignment: .trailing, spacing: 0) {
-                Text("종합 점수").font(.system(size: 10, weight: .semibold)).foregroundStyle(Theme.secondaryText)
+                Text("종합 점수").font(.system(size: 12, weight: .medium)).foregroundStyle(Theme.secondaryText)
                 Text("\(score)")
-                    .font(.system(size: 28, weight: .bold, design: .rounded)).monospacedDigit()
+                    .font(.system(size: 30, weight: .semibold, design: .rounded)).monospacedDigit()
                     .foregroundStyle(Theme.accent)
             }
             .padding(.trailing, 4)
         } else {
-            StatusGlyph(status: state.status).font(.system(size: 18, weight: .semibold)).padding(.trailing, 6)
+            StatusGlyph(status: state.status).font(.system(size: 20, weight: .semibold)).padding(.trailing, 8)
         }
     }
 }
 
-/// 아래: BEST TEAM (초상화 + 이름) 또는 상태 안내
+/// 아래: BEST TEAM 칩 또는 상태 안내
 struct IslandTeam: View {
     let state: ActivityDisplayState
     var body: some View {
         Group {
             if state.isReady {
                 VStack(alignment: .leading, spacing: 8) {
-                    HStack {
-                        Text("BEST TEAM").font(.system(size: 10, weight: .heavy)).tracking(1.2).foregroundStyle(Theme.accent)
+                    HStack(alignment: .firstTextBaseline) {
+                        Text("BEST TEAM").font(.system(size: 12, weight: .semibold)).foregroundStyle(Theme.secondaryText)
                         Spacer()
                         if let wr = state.winRate {
-                            Text("추정 승률 \(wr)%").font(.system(size: 10, weight: .medium)).monospacedDigit().foregroundStyle(Theme.secondaryText)
+                            Text("추정 승률 \(wr)%").font(.system(size: 12, weight: .medium)).monospacedDigit().foregroundStyle(Theme.secondaryText)
                         }
                     }
                     TeamChips(members: state.members)
                 }
             } else {
-                HStack(spacing: 8) {
-                    Text(state.status.title).font(.system(size: 13, weight: .semibold)).foregroundStyle(Theme.text)
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(state.status.title).font(.system(size: 15, weight: .semibold))
+                        .foregroundStyle(state.status.isError ? Theme.error : Theme.text)
                     if let m = state.message {
-                        Text(m).font(.system(size: 11)).foregroundStyle(Theme.secondaryText).lineLimit(2)
+                        Text(m).font(.system(size: 13)).foregroundStyle(Theme.secondaryText).lineLimit(2)
                     }
-                    Spacer(minLength: 0)
                 }
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
         }
-        .padding(.horizontal, 6)
-        .padding(.top, 2)
+        .padding(.horizontal, 4)
+        .padding(.top, 4)
         .padding(.bottom, 4)
     }
 }
 
-/// 펼침용: [초상화 이름] 칩을 가로로 (펼침 높이 한도 안에 들어가도록 한 줄)
+/// 펼침용: [초상화 이름] 칩 한 줄 (높이 한도 안)
 struct TeamChips: View {
     let members: [ActivityDisplayState.Member]
     var body: some View {
         let small = members.count > 3
         HStack(spacing: small ? 4 : 8) {
             ForEach(members, id: \.id) { m in
-                HStack(spacing: 6) {
-                    MiniPortrait(id: m.id, size: small ? 22 : 28, circle: true)
-                    if !small || members.count <= 4 {
-                        Text(m.name).font(.system(size: small ? 10 : 13, weight: .semibold)).foregroundStyle(Theme.text)
-                            .lineLimit(1).minimumScaleFactor(0.6)
+                HStack(spacing: 8) {
+                    MiniPortrait(id: m.id, size: small ? 24 : 28, circle: true)
+                    if members.count <= 4 {
+                        Text(m.name).font(.system(size: small ? 12 : 14, weight: .semibold)).foregroundStyle(Theme.text)
+                            .lineLimit(1).minimumScaleFactor(0.8)
                     }
                 }
-                .padding(.leading, 3).padding(.trailing, small ? 4 : 10).padding(.vertical, 3)
+                .padding(.leading, 4).padding(.trailing, small ? 8 : 12).padding(.vertical, 4)
                 .background(Theme.secondaryBackground, in: Capsule())
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
@@ -100,46 +101,45 @@ struct TeamChips: View {
     }
 }
 
-// MARK: - 잠금 화면
+// MARK: - 잠금 화면 (HIG 표준 여백 14pt, 높이 84~160pt)
 
-/// 잠금 화면 카드 (높이 한도 약 160pt 안에서 여백 14 로 통일)
 struct BrawlLockScreenView: View {
     let state: ActivityDisplayState
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: 12) {
             HStack(spacing: 6) {
-                Image(systemName: Theme.symbol).font(.system(size: 11, weight: .bold)).foregroundStyle(Theme.accent)
-                Text("BRAWL ASSISTANT").font(.system(size: 10, weight: .heavy)).tracking(1.2).foregroundStyle(Theme.secondaryText)
+                Image(systemName: Theme.symbol).font(.system(size: 12, weight: .semibold)).foregroundStyle(Theme.accent)
+                Text("Brawl Assistant").font(.system(size: 12, weight: .medium)).foregroundStyle(Theme.secondaryText)
                 Spacer()
                 if state.isReady, let wr = state.winRate {
-                    Text("추정 승률 \(wr)%").font(.system(size: 11, weight: .medium)).monospacedDigit().foregroundStyle(Theme.secondaryText)
+                    Text("추정 승률 \(wr)%").font(.system(size: 12, weight: .medium)).monospacedDigit().foregroundStyle(Theme.secondaryText)
                 } else {
-                    Text(state.status.title).font(.system(size: 11, weight: .semibold))
+                    Text(state.status.title).font(.system(size: 12, weight: .semibold))
                         .foregroundStyle(state.status.isError ? Theme.error : Theme.secondaryText)
                 }
             }
             if state.isReady {
-                HStack(alignment: .firstTextBaseline) {
-                    VStack(alignment: .leading, spacing: 1) {
-                        Text(state.mapName ?? "").font(.system(size: 17, weight: .bold)).foregroundStyle(Theme.text).lineLimit(1)
-                        if let mode = state.modeName { Text(mode).font(.system(size: 12)).foregroundStyle(Theme.secondaryText) }
+                HStack(alignment: .center, spacing: 12) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(state.mapName ?? "").font(.system(size: 17, weight: .semibold)).foregroundStyle(Theme.text).lineLimit(1)
+                        if let mode = state.modeName { Text(mode).font(.system(size: 13)).foregroundStyle(Theme.secondaryText) }
                     }
-                    Spacer()
+                    Spacer(minLength: 8)
                     if let score = state.score {
                         HStack(alignment: .firstTextBaseline, spacing: 2) {
-                            Text("\(score)").font(.system(size: 30, weight: .bold, design: .rounded)).monospacedDigit().foregroundStyle(Theme.accent)
-                            Text("/100").font(.system(size: 11, weight: .medium)).foregroundStyle(Theme.secondaryText)
+                            Text("\(score)").font(.system(size: 32, weight: .semibold, design: .rounded)).monospacedDigit().foregroundStyle(Theme.accent)
+                            Text("/100").font(.system(size: 12, weight: .medium)).foregroundStyle(Theme.secondaryText)
                         }
                     }
                 }
-                TeamRow(members: state.members, portrait: state.members.count > 3 ? 30 : 38, nameSize: 12)
+                TeamChips(members: state.members)
             } else {
-                VStack(alignment: .leading, spacing: 3) {
+                VStack(alignment: .leading, spacing: 4) {
                     if let map = state.mapName {
-                        Text([map, state.modeName].compactMap { $0 }.joined(separator: " · "))
+                        Text([map, state.modeName].compactMap { $0 }.joined(separator: ", "))
                             .font(.system(size: 15, weight: .semibold)).foregroundStyle(Theme.text)
                     }
-                    Text(state.message ?? state.status.title).font(.system(size: 12)).foregroundStyle(Theme.secondaryText).lineLimit(2)
+                    Text(state.message ?? state.status.title).font(.system(size: 13)).foregroundStyle(Theme.secondaryText).lineLimit(2)
                 }
             }
         }
@@ -149,31 +149,12 @@ struct BrawlLockScreenView: View {
 
 // MARK: - 공용 조각
 
-/// 초상화 + 이름을 같은 폭으로 나란히
-struct TeamRow: View {
-    let members: [ActivityDisplayState.Member]
-    let portrait: CGFloat
-    let nameSize: CGFloat
-    var body: some View {
-        HStack(alignment: .top, spacing: 6) {
-            ForEach(members, id: \.id) { m in
-                VStack(spacing: 4) {
-                    MiniPortrait(id: m.id, size: portrait)
-                    Text(m.name).font(.system(size: nameSize, weight: .semibold)).foregroundStyle(Theme.text)
-                        .lineLimit(1).minimumScaleFactor(0.7)
-                }
-                .frame(maxWidth: .infinity)
-            }
-        }
-    }
-}
-
-/// 축소형: 초상화를 살짝 겹쳐 좁은 폭에 3명
+/// 축소형: 초상화를 살짝 겹쳐 좁은 폭(52pt)에 3명
 struct StackedPortraits: View {
     let members: [ActivityDisplayState.Member]
     let size: CGFloat
     var body: some View {
-        HStack(spacing: -size * 0.3) {
+        HStack(spacing: -size * 0.35) {
             ForEach(members, id: \.id) { m in
                 MiniPortrait(id: m.id, size: size, circle: true)
                     .overlay(Circle().stroke(Color.black, lineWidth: 1.5))
@@ -217,6 +198,6 @@ struct MiniPortrait: View {
         }
         .frame(width: size, height: size)
         .background(Theme.secondaryBackground)
-        .clipShape(RoundedRectangle(cornerRadius: circle ? size / 2 : size * 0.28, style: .continuous))
+        .clipShape(RoundedRectangle(cornerRadius: circle ? size / 2 : size * 0.25, style: .continuous))
     }
 }

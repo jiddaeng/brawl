@@ -22,7 +22,7 @@ enum ExtensionActivityUpdater {
     static func end(_ state: ActivityDisplayState) async {
         #if BROADCAST_UPDATES_ACTIVITY
         for a in Activity<BrawlActivityAttributes>.activities {
-            await a.end(ActivityContent(state: state, staleDate: nil), dismissalPolicy: .after(Date().addingTimeInterval(10 * 60)))
+            await a.end(ActivityContent(state: state, staleDate: nil), dismissalPolicy: .after(Date().addingTimeInterval(15 * 60)))
         }
         #endif
     }
