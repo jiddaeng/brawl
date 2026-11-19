@@ -26,6 +26,7 @@ struct RecommendationView: View {
             VStack(alignment: .leading, spacing: 8) {
                 HStack(alignment: .firstTextBaseline) {
                     Text("추천 조합").font(.headline).foregroundStyle(Theme.text)
+                    Text("종합 점수 순").font(.footnote).foregroundStyle(Theme.secondaryText)
                     Spacer()
                     Text("추정 승률").font(.footnote).foregroundStyle(Theme.secondaryText)
                 }
@@ -70,7 +71,7 @@ struct TeamRankRow: View {
     let store: SharedStore?
     let selected: Bool
 
-    private var size: CGFloat { members.count > 3 ? 32 : 48 }
+    private var size: CGFloat { members.count > 3 ? 32 : 44 }
 
     var body: some View {
         HStack(spacing: 12) {
@@ -85,18 +86,22 @@ struct TeamRankRow: View {
                             Text(m.ko).font(.caption2).foregroundStyle(Theme.secondaryText).lineLimit(1).minimumScaleFactor(0.7)
                         }
                     }
-                    .frame(width: members.count > 3 ? size : size + 8)
+                    .frame(width: members.count > 3 ? size : size + 12)
                 }
             }
             Spacer(minLength: 8)
+            // 숫자는 줄바꿈되거나 줄어들지 않게 고정 (좁으면 캐릭터 쪽이 양보)
             VStack(alignment: .trailing, spacing: 2) {
                 HStack(alignment: .firstTextBaseline, spacing: 1) {
                     Text(winRate).font(.title3.weight(.semibold).monospacedDigit())
                         .foregroundStyle(rank == 1 ? Theme.accent : Theme.text)
                     Text("%").font(.caption).foregroundStyle(Theme.secondaryText)
                 }
-                Text("종합 \(score)").font(.caption.monospacedDigit()).foregroundStyle(Theme.secondaryText)
+                .lineLimit(1)
+                Text("종합 \(score)").font(.caption.monospacedDigit()).foregroundStyle(Theme.secondaryText).lineLimit(1)
             }
+            .fixedSize()
+            .layoutPriority(1)
         }
         .padding(.horizontal, 12).padding(.vertical, 8)
         .frame(minHeight: 44)
