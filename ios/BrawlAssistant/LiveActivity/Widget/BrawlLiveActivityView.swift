@@ -23,8 +23,7 @@ struct IslandHeader: View {
                 }
             }
         }
-        .padding(.leading, 10)
-        .padding(.top, 2)
+        .padding(.leading, 8)
     }
 }
 
@@ -47,7 +46,7 @@ struct IslandRanking: View {
     var body: some View {
         Group {
             if state.isReady {
-                RankingList(teams: state.rankedTeams, portrait: 22, rowSpacing: 4)
+                RankingList(teams: state.rankedTeams, portrait: 21, rowSpacing: 3)
             } else {
                 VStack(alignment: .leading, spacing: 4) {
                     Text(state.status.title).font(Theme.koFixed(16))
