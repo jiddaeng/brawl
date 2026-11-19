@@ -37,8 +37,13 @@ final class DesignSnapshotUITests: XCTestCase {
         _ = XCUIDevice.shared.perform(NSSelectorFromString("pressLockButton")); sleep(2)
         XCUIDevice.shared.press(.home); sleep(2)
         let springboard = XCUIApplication(bundleIdentifier: "com.apple.springboard")
-        let allow = springboard.buttons["Allow"].exists ? springboard.buttons["Allow"] : springboard.buttons["허용"]
-        if allow.waitForExistence(timeout: 3) { allow.tap(); sleep(2) }
+        // 허용 버튼은 버튼이 아닌 요소로 노출되기도 한다: 종류와 상관없이 찾는다
+        for label in ["Allow", "허용"] {
+            let el = springboard.descendants(matching: .any).matching(identifier: label).firstMatch
+            let byLabel = springboard.descendants(matching: .any).matching(NSPredicate(format: "label == %@", label)).firstMatch
+            if el.waitForExistence(timeout: 2) { el.tap(); sleep(2); break }
+            if byLabel.exists { byLabel.tap(); sleep(2); break }
+        }
         shot("06-lock-screen")
 
         // 잠금 해제 → 홈 화면: Dynamic Island 축소
