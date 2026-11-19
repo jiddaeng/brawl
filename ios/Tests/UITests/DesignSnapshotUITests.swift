@@ -57,5 +57,12 @@ final class DesignSnapshotUITests: XCTestCase {
         // 섬을 길게 눌러 펼침
         springboard.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.03)).press(forDuration: 1.5); sleep(2)
         shot("05-island-expanded")
+
+        // 한 번 더: 위젯 확장이 이미 떠 있는 상태에서 축소형·잠금 화면 (처음 렌더링이 늦는 경우 확인)
+        XCUIDevice.shared.press(.home); sleep(4)
+        shot("07-island-compact-again")
+        _ = XCUIDevice.shared.perform(NSSelectorFromString("pressLockButton")); sleep(2)
+        XCUIDevice.shared.press(.home); sleep(4)
+        shot("08-lock-screen-again")
     }
 }

@@ -23,7 +23,8 @@ struct IslandHeader: View {
                 }
             }
         }
-        .padding(.leading, 4)
+        .padding(.leading, 10)
+        .padding(.top, 2)
     }
 }
 
