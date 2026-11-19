@@ -19,6 +19,7 @@ public struct SharedStore: Sendable {
         case session            // 분석 세션 상태
         case extensionActivity  // 방송 확장의 Live Activity 갱신 결과 (진단)
         case liveActivityPush   // Live Activity 푸시 토큰 (앱 → 방송 확장)
+        case gameData           // 공식 API: 플레이어 태그·보유 브롤러·최근 경기·지금 열린 맵
         case recommendation(MapID)
         case stats(String)      // BrawlTime 맵별 통계 원본 (mode/slug)
 
@@ -30,6 +31,7 @@ public struct SharedStore: Sendable {
             case .session: return "session.json"
             case .extensionActivity: return "extension-activity.json"
             case .liveActivityPush: return "live-activity-push.json"
+            case .gameData: return "game-data.json"
             case .recommendation(let id): return "recommendations/\(id.fileKey).json"
             case .stats(let p): return "stats/\(p.replacingOccurrences(of: "/", with: "__")).json"
             }

@@ -23,8 +23,8 @@ final class RecommendationService {
         return try await engine.recommend(map: map, lock: Array(ally.prefix(map.size)), enemy: Array(enemy.prefix(map.size)))
     }
 
-    func precompute(_ maps: [CatalogMap], progress: @escaping @Sendable (Int, Int) -> Void) async {
-        await engine.precompute(maps: maps, progress: progress)
+    func precompute(_ maps: [CatalogMap], first: [MapID] = [], progress: @escaping @Sendable (Int, Int) -> Void) async {
+        await engine.precompute(maps: maps, first: first, progress: progress)
     }
 
     func cachePortraits(_ ids: [Int]) async { await engine.cachePortraits(ids) }

@@ -85,6 +85,28 @@ final class EngineParityTests: XCTestCase {
         }
     }
 
+    /// 보유 브롤러 옵션: 모든 추천 조합이 보유 브롤러로만 (tests/engine-owned.test.cjs 와 같은 확인을 iOS 브리지 경로로)
+    func testOwnedRestrictsTeams() throws {
+        let engine = try makeEngine()
+        let goldenText = try String(contentsOf: Self.regression.appendingPathComponent("golden.json"), encoding: .utf8)
+        _ = try engine.evaluateForTesting("var __golden = \(goldenText); 0")
+        let cases = (try JSONSerialization.jsonObject(with: Data(goldenText.utf8)) as! [String: Any])["cases"] as! [[String: Any]]
+        let i = cases.firstIndex { c in
+            let sc = c["scenario"] as! [String: Any]
+            return (sc["lock"] as! [Int]).isEmpty && (sc["enemy"] as! [Int]).isEmpty && (sc["ban"] as! [Int]).isEmpty
+        }!
+        let featJSON = try engine.evaluateForTesting("JSON.stringify(__golden.cases[\(i)].feat)")!
+        let id = MapID.number(cases[i]["map"] as! Int)
+        let (all, _) = try engine.recommend(mapID: id, featJSON: featJSON, statsJSON: nil)
+        let (same, _) = try engine.recommend(mapID: id, featJSON: featJSON, statsJSON: nil, owned: nil)
+        XCTAssertEqual(all.teams.map(\.ids), same.teams.map(\.ids))
+        let brs = try JSONDecoder().decode(ListOf<SlimBrawler>.self, from: Data(contentsOf: Self.fixtures.appendingPathComponent("brawlers.json"))).list
+        let owned = brs.enumerated().filter { $0.offset % 2 == 0 && $0.element.id != all.teams[0].ids[0] }.map(\.element.id)
+        let (r, _) = try engine.recommend(mapID: id, featJSON: featJSON, statsJSON: nil, owned: owned)
+        XCTAssertFalse(r.teams.isEmpty)
+        for t in r.teams { XCTAssertTrue(Set(t.ids).isSubset(of: Set(owned)), "\(t.ids)") }
+    }
+
     func testInvalidStatsIsNilLikeWeb() throws {
         XCTAssertNil(try makeEngine().parseStats(Data(#"{"presets":{}}"#.utf8)))
     }

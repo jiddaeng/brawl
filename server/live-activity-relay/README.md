@@ -1,4 +1,21 @@
-# Live Activity 푸시 중계 서버
+# Brawl Assistant 서버
+
+두 기능을 각각 따로 켤 수 있습니다.
+
+| 기능 | 경로 | 필요한 설정 |
+|---|---|---|
+| **공식 Brawl Stars API 중계** (지금 열린 맵, 보유 브롤러, 최근 경기) | `GET /v1/brawlstars/rotation`, `GET /v1/brawlstars/player/:tag` | `BRAWLSTARS_API_KEY` |
+| **Live Activity 푸시** (화면 인식을 쓸 때만) | `POST /v1/live-activity` | `APNS_*` |
+
+## 공식 Brawl Stars API 중계 (`brawlstars.mjs`)
+- **키 발급:** https://developer.brawlstars.com 에 Supercell ID로 로그인 → My Account → Create New Key. **이 서버의 공인 IP**를 허용 목록에 넣습니다. 키는 IP에 묶여 있어 앱이나 다른 서버에서는 쓸 수 없습니다(403).
+- **실행:** `BRAWLSTARS_API_KEY=... node server.mjs`. 고정 IP가 있는 곳(작은 VPS, 고정 IP를 주는 호스팅)에 올립니다.
+- **앱에 돌려주는 값(최소 정보):** 플레이어는 태그·이름·트로피·보유 브롤러(id, 파워)와 최근 경기 10개(시각, 모드, 맵 id·이름, 결과)입니다. 다른 플레이어 정보는 버립니다. 로테이션은 슬롯·시작·끝·모드·맵 id·이름입니다.
+- **캐시와 제한:** 로테이션 5분, 플레이어 1분 메모리 캐시. 공식 API 호출은 접속 주소마다 2초 간격, 시간당 120번입니다. 로그에 플레이어 태그를 남기지 않습니다.
+- **한계:** 공식 API에는 진행 중인 경기 정보가 없습니다. 전적은 경기가 끝난 뒤 늦게(수 분~30분) 올라옵니다. 그래서 앱은 '지금 열린 맵'과 '최근 경기 맵'으로 맵 고르기를 빠르게 할 뿐, 지금 들어갈 맵을 확정하지는 못합니다.
+- **약관:** Supercell 팬 콘텐츠 정책에 따라 비공식 도구임을 밝히고(앱 하단 문구), 공식 API로만 데이터를 받습니다.
+
+# Live Activity 푸시 중계
 
 게임 중(Brawl Assistant가 백그라운드일 때) Dynamic Island와 잠금 화면 추천을 갱신하기 위한 작은 서버입니다.
 
@@ -58,8 +75,9 @@ APNS_BUNDLE_ID=com.example.brawlassistant node server.mjs
 
 ## 테스트
 ```bash
-node --test server/live-activity-relay/relay.test.mjs
+node --test server/live-activity-relay/relay.test.mjs server/live-activity-relay/brawlstars.test.mjs
 ```
+`brawlstars.test.mjs`는 가짜 공식 API(fetch)로 태그 검증, 최소 정보 변환, 캐시, 오류 코드, HTTP 서버를 확인합니다. 실제 api.brawlstars.com 호출은 IP가 등록된 키가 있어야 해서 배포한 뒤 확인합니다.
 가짜 APNs(HTTP/2) 서버로 다음을 확인합니다. 실제 APNs 전송은 키가 있어야 해서 기기 검증 단계에서 확인합니다.
 - 요청 검증
 - 페이로드: aps 시각은 Unix 초, content-state는 그대로 전달

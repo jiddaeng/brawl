@@ -170,7 +170,9 @@ function solve(mp,dm){
   DATA.pool=pool; const byId={};pool.forEach(b=>byId[b.id]=b);
   const lock=STATE.lock.map(id=>byId[id]).filter(Boolean).slice(0,mp.size);
   const N=mp.size>=5?18:mp.size===3?28:mp.size===2?40:pool.length;
-  const cand=pool.slice(0,N).filter(b=>!lock.includes(b));
+  // 보유 브롤러만(앱 전용 옵션 STATE.owned): 우리 팀 후보만 줄인다. 상대·카운터 계산은 전체 풀 그대로. 웹은 owned 가 없어 그대로
+  const own=STATE.owned?new Set(STATE.owned):null;
+  const cand=(own?pool.filter(b=>own.has(b.id)):pool).slice(0,N).filter(b=>!lock.includes(b));
   const need=mp.size-lock.length, out=[];let count=0;
   const rec=(start,cur)=>{if(cur.length===need){count++;out.push(teamEval([...lock,...cur],mp,dm,pool));return}for(let i=start;i<cand.length;i++){cur.push(cand[i]);rec(i+1,cur);cur.pop()}};
   rec(0,[]);
@@ -343,11 +345,12 @@ var DraftEngine={
   fallbackFeat(mode){return fallbackFeat(mode)},
   // BrawlTime 맵별 통계 JSON → 승률 효과 (웹과 같이 실패하면 null)
   parseStats(j){try{return parseStats(j)}catch(e){return null}},
-  // opt: {stats, lock:[id], enemy:[id], ban:[id]}. 반환: 웹 결과 카드에 그려지는 값과 같은 내용
+  // opt: {stats, lock:[id], enemy:[id], ban:[id], owned:[id]|null (보유 브롤러만 우리 팀 후보로)}. 반환: 웹 결과 카드에 그려지는 값과 같은 내용
   recommend(mapId,feat,opt){
     opt=opt||{};
     const m=DATA.maps.find(x=>x.id===mapId);if(!m)throw new Error('unknown map '+mapId);
     STATE.map=m;STATE.stats=opt.stats||null;STATE.lock=(opt.lock||[]).slice();STATE.enemy=(opt.enemy||[]).slice();STATE.ban=(opt.ban||[]).slice();
+    STATE.owned=Array.isArray(opt.owned)?opt.owned.slice():null;
     const mp=modeProfile(m.mode),dm=demands(feat,mp);
     const R=solve(mp,dm);
     // 화면 표시 문자열도 웹(brCard·결과 카드)과 같은 식으로 여기서 만든다. 호스트(iOS·Android)는 다시 포맷하지 않는다

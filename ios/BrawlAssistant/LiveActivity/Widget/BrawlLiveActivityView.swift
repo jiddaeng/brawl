@@ -1,5 +1,6 @@
 import SwiftUI
 import WidgetKit
+import AppIntents
 import BrawlCore
 
 extension ActivityDisplayState {
@@ -27,13 +28,12 @@ struct IslandHeader: View {
     }
 }
 
-/// 오른쪽 위: 아래 리스트의 승률 열 제목 (추천 완료일 때) 또는 상태 기호
+/// 오른쪽 위: 맵 전환 버튼 ◀ ▶ (추천이 있을 때) 또는 상태 기호
 struct IslandColumnLabel: View {
     let state: ActivityDisplayState
     var body: some View {
         if state.isReady {
-            Text("추정 승률").font(Theme.koFixed(11)).foregroundStyle(Theme.secondaryText)
-                .frame(maxHeight: .infinity, alignment: .bottom).padding(.trailing, 6)
+            MapStepButtons(size: 30).padding(.trailing, 6).padding(.top, 2)
         } else {
             StatusGlyph(status: state.status).font(.system(size: 18, weight: .semibold)).padding(.trailing, 8)
         }
@@ -77,7 +77,7 @@ struct BrawlLockScreenView: View {
                 if let mode = state.modeName { Text(mode).font(Theme.koFixed(12)).foregroundStyle(Theme.secondaryText).lineLimit(1) }
                 Spacer(minLength: 6)
                 if state.isReady {
-                    Text("추정 승률").font(Theme.koFixed(11)).foregroundStyle(Theme.secondaryText)
+                    MapStepButtons(size: 26)
                 } else {
                     Text(state.status.title).font(Theme.koFixed(12))
                         .foregroundStyle(state.status.isError ? Theme.error : Theme.secondaryText)
@@ -90,6 +90,38 @@ struct BrawlLockScreenView: View {
             }
         }
         .padding(14)
+    }
+}
+
+// MARK: - 맵 전환 버튼
+
+/// ◀ ▶: 지금 열린 맵을 차례로 바꾼다. 눌러도 게임 화면을 벗어나지 않는다 (앱이 백그라운드에서 처리, ChangeMapIntent)
+struct MapStepButtons: View {
+    let size: CGFloat
+    var body: some View {
+        HStack(spacing: 6) {
+            StepButton(step: -1, symbol: "chevron.left", label: "이전 맵", size: size)
+            StepButton(step: 1, symbol: "chevron.right", label: "다음 맵", size: size)
+        }
+    }
+}
+
+struct StepButton: View {
+    let step: Int
+    let symbol: String
+    let label: String
+    let size: CGFloat
+    var body: some View {
+        Button(intent: ChangeMapIntent(step: step)) {
+            Image(systemName: symbol)
+                .font(.system(size: size * 0.42, weight: .heavy))
+                .foregroundStyle(Theme.accent)
+                .frame(width: size, height: size)
+                .background(Theme.panel, in: Circle())
+                .overlay(Circle().stroke(Theme.line, lineWidth: 1))
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(label)
     }
 }
 

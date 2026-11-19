@@ -104,9 +104,11 @@ public final class DraftEngineJS {
 
     /// 추천 계산 (웹 runEngine + renderResult 와 같은 함수 호출)
     /// - featJSON / statsJSON: 이 엔진이 돌려준 JSON 원문
-    public func recommend(mapID: MapID, featJSON: String, statsJSON: String?, lock: [Int] = [], enemy: [Int] = [], ban: [Int] = []) throws -> (EngineResult, json: String) {
+    /// - owned: 보유 브롤러 id (우리 팀 후보만 이 안에서). nil 이면 전체 (웹과 같음)
+    public func recommend(mapID: MapID, featJSON: String, statsJSON: String?, lock: [Int] = [], enemy: [Int] = [], ban: [Int] = [], owned: [Int]? = nil) throws -> (EngineResult, json: String) {
         let ids = { (a: [Int]) in "[" + a.map(String.init).joined(separator: ",") + "]" }
-        let opt = "{\"stats\":\(statsJSON ?? "null"),\"lock\":\(ids(lock)),\"enemy\":\(ids(enemy)),\"ban\":\(ids(ban))}"
+        let ownedJSON = owned.map(ids) ?? "null"
+        let opt = "{\"stats\":\(statsJSON ?? "null"),\"lock\":\(ids(lock)),\"enemy\":\(ids(enemy)),\"ban\":\(ids(ban)),\"owned\":\(ownedJSON)}"
         let json = try invoke("recommend", [mapID.jsonLiteral, featJSON, opt], "recommend")
         do { return (try JSONDecoder().decode(EngineResult.self, from: Data(json.utf8)), json) }
         catch { throw EngineError.badResult("recommend: \(error)") }

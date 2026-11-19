@@ -1,6 +1,16 @@
 # Brawl Assistant (iOS)
 
-브롤스타즈 화면에서 맵과 모드를 읽어, 기존 **Draft Room 추천 엔진**으로 조합을 계산하고 Dynamic Island에 보여 주는 iPhone 앱입니다.
+기존 **Draft Room 추천 엔진**으로 브롤스타즈 조합을 계산해 앱과 Dynamic Island에 보여 주는 iPhone 앱입니다.
+
+## 사용 흐름 (화면 녹화 없음)
+1. **플레이어 연결 (선택):** 게임 태그를 넣으면 서버가 Supercell 공식 API로 보유 브롤러와 파워를 받아 옵니다. 추천은 내가 가진 브롤러로만 합니다(최소 파워 설정 가능).
+2. **지금 열린 맵:** 공식 이벤트 로테이션 맵이 앱 위쪽에 나옵니다. 한 번 누르면 추천이 나옵니다. 공식 전적의 최근 경기 맵이 45분 이내이면 그 맵을 표시하고 자동으로 고릅니다.
+3. **Dynamic Island 켜기:** 게임 중에는 Dynamic Island를 길게 눌러 펼치거나 잠금 화면에서 ◀ ▶ 를 누르면 맵이 바뀝니다. 이 버튼은 `ChangeMapIntent`(LiveActivityIntent)입니다. 시스템이 앱을 백그라운드에서 깨워 실행하고, 앱이 직접 Live Activity를 갱신합니다. 서버나 푸시가 필요 없습니다.
+4. **화면 인식 (선택):** 예전 방식(ReplayKit 방송 + Vision OCR)은 맵을 자동으로 찾고 싶을 때만 씁니다.
+
+**게임 앱에서 직접 받지 않는 이유:** iOS는 다른 앱의 데이터를 읽을 수 없습니다. Supercell 공식 API에는 진행 중인 경기(지금 들어갈 맵, 드래프트 픽) 정보가 없고, 전적은 경기가 끝난 뒤 늦게 올라옵니다. 게임 통신을 가로채는 방식은 Supercell 약관 위반이라 쓰지 않습니다.
+
+**서버:** 공식 API 키는 서버 IP에 묶인 비밀 값이라 앱에 넣을 수 없습니다. 그래서 `server/live-activity-relay`가 키를 들고 대신 부릅니다(`/v1/brawlstars/rotation`, `/v1/brawlstars/player/:tag`). 서버 주소는 `project.yml`의 `PUSH_RELAY_URL`에 넣습니다. 비워 두면 '지금 열린 맵'과 플레이어 연결이 꺼집니다. 그때는 맵 직접 선택과 ◀ ▶(랭크 맵 순서)만 동작합니다.
 추천 알고리즘은 새로 만들지 않았습니다. 웹 사이트와 같은 파일인 `../engine/draft-engine.js`를 JavaScriptCore로 그대로 실행합니다.
 
 > 상태: GitHub Actions(macOS, Xcode 16.4)에서 앱·위젯 확장·방송 확장이 시뮬레이터용과 기기용 모두 빌드되고, 엔진 일치 테스트가 통과합니다. 실제 iPhone 동작은 아직 확인하지 않았습니다. 아래 [검증 현황](#검증-현황)을 보세요.
@@ -14,16 +24,17 @@ ios/
 ├── BrawlAssistant/
 │   ├── App/                        BrawlAssistantApp, AppState
 │   ├── Features/
-│   │   ├── Home/                   HomeView, HomeViewModel, MapPickerView
+│   │   ├── Home/                   HomeView, HomeViewModel, MapPickerView, GameDataViews (플레이어·지금 열린 맵)
 │   │   ├── Recommendation/         RecommendationView, RecommendationService
 │   │   └── ScreenRecognition/      BroadcastPicker (RPSystemBroadcastPickerView)
 │   ├── LiveActivity/
 │   │   ├── BrawlActivityAttributes.swift   (앱·위젯·확장 공용)
 │   │   ├── LiveActivityController.swift    (앱: 시작·갱신·종료)
+│   │   ├── ChangeMapIntent.swift           (앱·위젯 공용: ◀ ▶ 맵 전환, 앱 프로세스에서 실행)
 │   │   └── Widget/                         BrawlLiveActivity, BrawlLiveActivityView (위젯 확장)
 │   ├── Extensions/BrawlBroadcastExtension/ SampleHandler, ScreenCaptureManager, FrameAnalyzer, GameScreenRecognizer
 │   ├── Shared/                     App Group · Darwin 알림
-│   └── Design/                     Theme (검은 배경 · 강조색 #FFCF1F)
+│   └── Design/                     Theme (웹 Draft Room 토큰·글꼴, DESIGN.md)
 └── Packages/BrawlCore/             Swift 패키지 (요청 구조의 Core/ 에 해당)
     ├── BrawlCore    (Foundation만)  Models · Networking(DataSources) · Data(SharedStore) · 인식 매칭 · 상태 규칙
     └── BrawlEngine  (Apple 전용)    Algorithm: JavaScriptCore 브리지, PNG 원본 픽셀 디코더, 계산·캐시 오케스트레이션

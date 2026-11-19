@@ -1,0 +1,78 @@
+{
+ "ok": true,
+ "fetchedAt": "2026-11-19T02:30:00.000Z",
+ "rotation": [
+  {
+   "slot": 1,
+   "start": "2026-11-19T00:00:00.000Z",
+   "end": "2026-11-20T00:00:00.000Z",
+   "mode": "bounty",
+   "mapId": 15001395,
+   "map": "Sudden Movements"
+  },
+  {
+   "slot": 2,
+   "start": "2026-11-19T00:00:00.000Z",
+   "end": "2026-11-20T00:00:00.000Z",
+   "mode": "gemGrab",
+   "mapId": 15001389,
+   "map": "Ravenous Rapids"
+  },
+  {
+   "slot": 3,
+   "start": "2026-11-19T00:00:00.000Z",
+   "end": "2026-11-20T00:00:00.000Z",
+   "mode": "brawlBall",
+   "mapId": 15001380,
+   "map": "Front Tackle"
+  },
+  {
+   "slot": 4,
+   "start": "2026-11-19T00:00:00.000Z",
+   "end": "2026-11-20T00:00:00.000Z",
+   "mode": "knockout",
+   "mapId": 15001392,
+   "map": "Pincer Movement"
+  },
+  {
+   "slot": 5,
+   "start": "2026-11-19T00:00:00.000Z",
+   "end": "2026-11-20T00:00:00.000Z",
+   "mode": "heist",
+   "mapId": 15001386,
+   "map": "On The Lookout"
+  },
+  {
+   "slot": 6,
+   "start": "2026-11-19T00:00:00.000Z",
+   "end": "2026-11-20T00:00:00.000Z",
+   "mode": "hotZone",
+   "mapId": 15001383,
+   "map": "Sunken Harbor"
+  },
+  {
+   "slot": 7,
+   "start": "2026-11-19T00:00:00.000Z",
+   "end": "2026-11-20T00:00:00.000Z",
+   "mode": "soloShowdown",
+   "mapId": 15001307,
+   "map": "Rockwall Brawl"
+  },
+  {
+   "slot": 8,
+   "start": "2026-11-19T00:00:00.000Z",
+   "end": "2026-11-20T00:00:00.000Z",
+   "mode": "duoShowdown",
+   "mapId": 15001308,
+   "map": "Rockwall Brawl"
+  },
+  {
+   "slot": 9,
+   "start": "2026-11-19T00:00:00.000Z",
+   "end": "2026-11-20T00:00:00.000Z",
+   "mode": "brawlBall5V5",
+   "mapId": 15001315,
+   "map": "Stockpile Stadium"
+  }
+ ]
+}

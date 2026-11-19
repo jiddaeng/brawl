@@ -92,6 +92,15 @@ final class LiveActivityController: ObservableObject {
         }
     }
 
+    /// 맵 전환 버튼(◀ ▶): 간격 제한 없이 바로 갱신하고 끝날 때까지 기다린다.
+    /// 앱이 백그라운드에서 버튼 동작(LiveActivityIntent)을 실행하는 동안에 갱신을 마쳐야 하기 때문
+    func publishNow(_ state: ActivityDisplayState) async {
+        guard let a = current else { isRunning = false; return }
+        pendingTask?.cancel(); pendingTask = nil; pending = nil
+        policy.markPublished(key: state.contentKey, at: Date())
+        await a.update(ActivityContent(state: state, staleDate: Date().addingTimeInterval(30 * 60)))
+    }
+
     /// 현재 Live Activity 에 실제로 표시 중인 값 (방송 확장이 갱신에 성공했는지 확인할 때 사용)
     var displayedState: ActivityDisplayState? { current?.content.state }
 

@@ -205,7 +205,7 @@ public struct HomePresentation: Equatable, Sendable {
                 p.statusTitle = AnalysisStatus.ready.title; p.statusDetail = "직접 고른 맵"; p.recommendation = m; p.isManual = true
             } else {
                 p.statusTitle = s.status == .ended ? AnalysisStatus.ended.title : AnalysisStatus.waiting.title
-                p.statusDetail = "‘화면 분석 시작’을 누르고 브롤스타즈를 실행하세요."
+                p.statusDetail = "지금 열린 맵을 고르면 추천이 나옵니다. 게임 중에는 Dynamic Island 의 ◀ ▶ 로 맵을 바꿉니다."
             }
         case .waiting:
             if now.timeIntervalSince(s.updatedAt) > waitingTimeout {

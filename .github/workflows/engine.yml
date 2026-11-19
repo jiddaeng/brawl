@@ -24,3 +24,5 @@ jobs:
         run: git diff --exit-code tests/engine-regression/golden.json
       - run: node tests/engine-regression/compare.cjs
       - run: node tests/engine-regression/compare.cjs --node
+      - name: 보유 브롤러 옵션 (opt.owned)
+        run: node --test tests/engine-owned.test.cjs

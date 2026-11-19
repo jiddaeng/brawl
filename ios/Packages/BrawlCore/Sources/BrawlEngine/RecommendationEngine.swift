@@ -18,6 +18,9 @@ public actor RecommendationEngine {
     public private(set) var catalog: EngineCatalog?
     private var statsJSON: [String: String?] = [:]   // 웹 STATS 와 같이 세션 동안 캐시 (실패도 캐시)
     private var features: FeatureCache
+    /// 보유 브롤러만 추천 (공식 API 플레이어 정보). nil 이면 전체 브롤러. 바뀌면 미리 계산을 다시 해야 한다
+    public private(set) var owned: [Int]?
+    public func setOwned(_ ids: [Int]?) { owned = ids }
 
     public init(scriptURL: URL, store: SharedStore, fetcher: HTTPFetching = URLSessionFetcher()) throws {
         engine = try DraftEngineJS(scriptURL: scriptURL)
@@ -62,18 +65,22 @@ public actor RecommendationEngine {
         return parsed
     }
 
-    /// 한 맵 추천 계산. lock/enemy/ban 이 비어 있으면 결과를 App Group 에 저장해 방송 확장이 바로 쓰게 한다
+    /// 한 맵 추천 계산 (보유 브롤러 설정 반영). lock/enemy/ban 이 비어 있으면 결과를 App Group 에 저장해
+    /// 방송 확장과 Live Activity 맵 전환 버튼이 계산 없이 바로 쓰게 한다
     public func recommend(map: CatalogMap, lock: [Int] = [], enemy: [Int] = [], ban: [Int] = []) async throws -> EngineResult {
         let feat = try await featureJSON(for: map)
         let st = try await stats(for: map)
-        let (r, json) = try engine.recommend(mapID: map.id, featJSON: feat, statsJSON: st, lock: lock, enemy: enemy, ban: ban)
+        let (r, json) = try engine.recommend(mapID: map.id, featJSON: feat, statsJSON: st, lock: lock, enemy: enemy, ban: ban, owned: owned)
         if lock.isEmpty && enemy.isEmpty && ban.isEmpty { try? store.writeData(Data(json.utf8), .recommendation(map.id)) }
         return r
     }
 
     /// 현재 맵 풀 전체의 기본 추천을 미리 계산 (랭크 모드 먼저). 방송 확장은 계산 없이 이 결과를 읽는다
-    public func precompute(maps: [CatalogMap], progress: @Sendable (Int, Int) -> Void) async {
-        let ordered = maps.filter { $0.ranked } + maps.filter { !$0.ranked }
+    /// first: 먼저 계산할 맵 (지금 열린 맵)
+    public func precompute(maps: [CatalogMap], first: [MapID] = [], progress: @Sendable (Int, Int) -> Void) async {
+        let head = first.compactMap { id in maps.first { $0.id == id } }
+        let rest = maps.filter { m in !first.contains(m.id) }
+        let ordered = head + rest.filter { $0.ranked } + rest.filter { !$0.ranked }
         for (i, m) in ordered.enumerated() {
             if Task.isCancelled { return }
             _ = try? await recommend(map: m)

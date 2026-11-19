@@ -6,6 +6,9 @@ import BrawlEngine
 /// 앱 전체 상태. 데이터 갱신·추천 계산·방송 확장과의 연결·Live Activity 를 관리한다.
 @MainActor
 final class AppState: ObservableObject {
+    /// 앱 하나에 하나. Live Activity 맵 전환 버튼(ChangeMapIntent)이 앱이 백그라운드일 때도 같은 상태를 쓴다
+    static let shared = AppState()
+
     enum DataStatus: Equatable {
         case idle, loading
         case ready(Date)
@@ -24,6 +27,24 @@ final class AppState: ObservableObject {
     @Published private(set) var isComputing = false
     @Published var alert: String?
     @Published var now = Date()
+    /// 공식 API (서버 중계): 플레이어 태그·보유 브롤러·최근 경기·지금 열린 맵
+    @Published private(set) var gameData = GameDataSnapshot()
+    @Published private(set) var gameDataLoading = false
+    @Published private(set) var gameDataError: String?
+    static let ownedOnlyKey = "player.ownedOnly"
+    static let minPowerKey = "player.minPower"
+    var ownedOnly: Bool { UserDefaults.standard.object(forKey: Self.ownedOnlyKey) as? Bool ?? true }
+    var minPower: Int { max(1, UserDefaults.standard.integer(forKey: Self.minPowerKey)) }
+    #if DEBUG
+    private var demoNow: Date?
+    #endif
+    /// 이벤트 시간 판단에 쓰는 현재 시각 (데모는 데모 데이터의 시각)
+    var gameNow: Date {
+        #if DEBUG
+        if let d = demoNow { return d }
+        #endif
+        return now
+    }
     /// 실험 기능: 드래프트 화면에서 읽은 브롤러를 추천에 반영 (앱이 화면에 있을 때 다시 계산). 화면의 토글과 같은 키
     static let usePicksKey = "recognition.usePicks"
     var usePickedBrawlers: Bool { UserDefaults.standard.bool(forKey: Self.usePicksKey) }
@@ -36,9 +57,14 @@ final class AppState: ObservableObject {
     private var clock: Timer?
     private var computingMap: MapID?
 
-    init() {
+    private init() {
         store = AppGroup.store
         liveActivity.store = store
+        if let store {
+            do { service = try RecommendationService(store: store) }
+            catch { dataStatus = .failed(error.localizedDescription) }
+            gameData = store.read(GameDataSnapshot.self, .gameData) ?? GameDataSnapshot()
+        }
         #if DEBUG
         if loadDemoIfRequested() { return }
         #endif
@@ -46,8 +72,8 @@ final class AppState: ObservableObject {
             dataStatus = .failed("App Group 컨테이너를 열 수 없습니다. 서명 설정의 App Groups 를 확인하세요.")
             return
         }
-        do { service = try RecommendationService(store: store) }
-        catch { dataStatus = .failed(error.localizedDescription) }
+        let owned = ownedIDs
+        if let service { Task { await service.engine.setOwned(owned) } }
         catalog = store.read(EngineCatalog.self, .catalog)
         if let c = catalog { ModeNames.register(c) }
         session = store.read(AnalysisSession.self, .session) ?? .idle
@@ -71,8 +97,10 @@ final class AppState: ObservableObject {
             catalog = r.catalog
             ModeNames.register(r.catalog)
             dataStatus = r.cachedAt.map { .offline(cachedAt: $0) } ?? .ready(Date())
-            await service.cachePortraits(r.catalog.brawlers.map(\.id))
+            await refreshGameData()
             startPrecompute(r.catalog, store: store)
+            await service.cachePortraits(r.catalog.brawlers.map(\.id))
+            autoSelectRecentMap()
         } catch {
             dataStatus = .failed(error.localizedDescription)
         }
@@ -85,7 +113,8 @@ final class AppState: ObservableObject {
         precomputeTask = Task { [weak self] in
             // 앱이 백그라운드로 가도 조금 더 이어서 계산 (시스템이 허락하는 동안)
             let bg = UIApplication.shared.beginBackgroundTask(withName: "precompute", expirationHandler: nil)
-            await service.precompute(cat.maps) { done, total in
+            let first = QuickMaps.current(rotation: self?.gameData.rotation ?? [], catalog: cat, now: Date()).map(\.id)
+            await service.precompute(cat.maps, first: first) { done, total in
                 Task { @MainActor in
                     self?.precomputed = done; self?.precomputeTotal = total
                     // 방송 확장이 기다리는 맵이 있을 수 있으므로 주기적으로 알림
@@ -93,6 +122,134 @@ final class AppState: ObservableObject {
                 }
             }
             UIApplication.shared.endBackgroundTask(bg)
+        }
+    }
+
+    // MARK: 공식 API (플레이어·지금 열린 맵)
+
+    private var gameClient: GameDataClient? { AppGroup.pushRelayURL.flatMap(URL.init(string:)).map { GameDataClient(base: $0) } }
+    var gameDataAvailable: Bool { gameClient != nil }
+
+    /// 지금 열린 맵 (공식 이벤트 로테이션 중 엔진 맵 풀에 있는 맵)
+    var currentMaps: [CatalogMap] {
+        guard let c = catalog else { return [] }
+        return QuickMaps.current(rotation: gameData.rotation, catalog: c, now: gameNow)
+    }
+    /// Dynamic Island ◀ ▶ 가 도는 순서 (지금 열린 맵, 없으면 랭크 맵)
+    var cycleMaps: [CatalogMap] {
+        guard let c = catalog else { return [] }
+        return QuickMaps.cycleList(rotation: gameData.rotation, catalog: c, now: gameNow)
+    }
+    /// 최근 경기 맵 (공식 전적, 45분 이내, 지금 열린 맵일 때)
+    var recentMap: (map: CatalogMap, at: Date)? { QuickMaps.recentMap(player: gameData.player, in: currentMaps, now: gameNow) }
+    /// 엔진에 넘길 보유 브롤러 (설정이 꺼져 있거나 플레이어 정보가 없으면 nil = 전체)
+    var ownedIDs: [Int]? { ownedOnly ? OwnedFilter.ids(gameData.player, minPower: minPower) : nil }
+
+    /// 지금 열린 맵과 (연결돼 있으면) 플레이어 정보를 받는다
+    func refreshGameData() async {
+        guard let client = gameClient else { return }
+        gameDataLoading = true; gameDataError = nil
+        defer { gameDataLoading = false }
+        var snap = gameData
+        do { snap.rotation = try await client.rotation(); snap.rotationFetchedAt = Date() }
+        catch { gameDataError = "지금 열린 맵: \(error.localizedDescription)" }
+        if let tag = snap.tag {
+            do { snap.player = try await client.player(tag: tag); snap.playerFetchedAt = Date() }
+            catch { gameDataError = "플레이어 정보: \(error.localizedDescription)" }
+        }
+        await saveGameData(snap)
+    }
+
+    /// 앱으로 돌아올 때: 2분 넘게 지났으면 다시 받고, 고른 맵이 없으면 최근 경기 맵
+    func refreshGameDataIfStale() async {
+        let last = [gameData.rotationFetchedAt, gameData.playerFetchedAt].compactMap { $0 }.min()
+        if last == nil || Date().timeIntervalSince(last!) > 120 { await refreshGameData() }
+        autoSelectRecentMap()
+    }
+
+    /// 플레이어 태그 연결: 보유 브롤러로 추천 후보를 줄인다
+    func linkPlayer(tag input: String) async -> Bool {
+        guard let tag = PlayerTag.normalize(input) else { gameDataError = GameDataError.invalidTag.errorDescription; return false }
+        guard let client = gameClient else { gameDataError = GameDataError.notConfigured.errorDescription; return false }
+        gameDataLoading = true; gameDataError = nil
+        defer { gameDataLoading = false }
+        do {
+            let p = try await client.player(tag: tag)
+            var snap = gameData
+            snap.tag = tag; snap.player = p; snap.playerFetchedAt = Date()
+            await saveGameData(snap)
+            autoSelectRecentMap()
+            return true
+        } catch {
+            gameDataError = error.localizedDescription
+            return false
+        }
+    }
+
+    func unlinkPlayer() {
+        Task { await saveGameData(GameDataSnapshot(rotation: gameData.rotation, rotationFetchedAt: gameData.rotationFetchedAt)) }
+    }
+
+    /// 보유 브롤러 설정(켜기·최소 파워)이 바뀜
+    func ownedSettingsChanged() { Task { await applyOwned(force: true) } }
+
+    private func saveGameData(_ snap: GameDataSnapshot) async {
+        gameData = snap
+        try? store?.write(snap, .gameData)
+        await applyOwned(force: false)
+    }
+
+    private var appliedOwned: [Int]?? = .none
+    /// 보유 브롤러가 바뀌면 엔진에 알리고, 미리 계산과 지금 보는 추천을 다시 계산
+    private func applyOwned(force: Bool) async {
+        let ids = ownedIDs
+        if !force, case .some(let prev) = appliedOwned, prev == ids { return }
+        appliedOwned = .some(ids)
+        guard let service else { return }
+        await service.engine.setOwned(ids)
+        if let cat = catalog, let store, dataStatus != .loading { startPrecompute(cat, store: store) }
+        if let id = manualRecommendation?.mapID, let m = catalog?.maps.first(where: { $0.id == id }) { chooseMapManually(m) }
+    }
+
+    /// 앱을 열었을 때 고른 맵이 없으면 최근 경기 맵을 보여 준다 (화면 인식 중이면 건드리지 않음)
+    private func autoSelectRecentMap() {
+        guard manualRecommendation == nil, !presentation.broadcastActive, let r = recentMap else { return }
+        chooseMapManually(r.map)
+    }
+
+    // MARK: Live Activity 맵 전환 (◀ ▶)
+
+    /// Dynamic Island·잠금 화면 버튼. 앱이 백그라운드(게임 중)여도 시스템이 앱 프로세스에서 실행한다 (LiveActivityIntent).
+    /// 미리 계산된 추천을 바로 쓰고, 없으면 그 자리에서 계산한다. 그다음 Live Activity 를 직접 갱신한다 (서버·푸시 불필요)
+    func cycleMap(step: Int) async {
+        if catalog == nil { catalog = store?.read(EngineCatalog.self, .catalog) }
+        let list = cycleMaps
+        let current = manualRecommendation?.mapID ?? presentation.recommendation?.mapID
+        guard let target = QuickMaps.step(from: current, in: list, by: step) else { return }
+        guard let r = await result(for: target) else { return }
+        manualResult = r
+        manualRecommendation = Recommendation(result: r)
+        guard let rec = manualRecommendation else { return }
+        // Live Activity 는 네트워크 이미지를 못 쓴다: 새 맵 조합의 초상화가 App Group 에 없으면 먼저 받아 둔다
+        if let service { await service.cachePortraits(r.teams.prefix(RankedTeam.limit).flatMap(\.ids)) }
+        await liveActivity.publishNow(ActivityDisplayState(manual: rec))
+    }
+
+    /// 한 맵의 기본 추천: 미리 계산된 파일(보유 브롤러 설정과 맞을 때) → 없으면 엔진 계산
+    private func result(for map: CatalogMap) async -> EngineResult? {
+        let owned = ownedIDs.map(Set.init)
+        if let r = store?.recommendation(for: map.id), !r.teams.isEmpty,
+           owned == nil || r.teams.allSatisfy({ Set($0.ids).isSubset(of: owned!) }) {
+            return r
+        }
+        guard let service else { return nil }
+        do {
+            if await service.engine.catalog == nil { _ = try await service.refresh() }
+            await service.engine.setOwned(ownedIDs)
+            return try await service.recommend(map: map)
+        } catch {
+            alert = error.localizedDescription
+            return nil
         }
     }
 
@@ -236,6 +393,17 @@ final class AppState: ObservableObject {
         manualRecommendation = rec
         dataStatus = .ready(Date())
         UserDefaults.standard.set(true, forKey: "onboarding.done")
+        // 데모용 공식 API 데이터 (tests/app-fixtures/player.json, rotation.json) + 그 시각
+        if let dir = env["BRAWL_DEMO_FIXTURES"] {
+            let read = { (n: String) in FileManager.default.contents(atPath: dir + "/" + n) }
+            if let d = read("catalog.json"), let c = try? JSONDecoder().decode(EngineCatalog.self, from: d) { catalog = c; ModeNames.register(c) }
+            var snap = GameDataSnapshot()
+            if let d = read("rotation.json"), let rr = try? JSONDecoder().decode(RotationResponse.self, from: d) { snap.rotation = rr.rotation }
+            if let d = read("player.json"), let pr = try? JSONDecoder().decode(PlayerResponse.self, from: d) { snap.tag = pr.player.tag; snap.player = pr.player }
+            gameData = snap
+            try? store?.write(snap, .gameData)
+            demoNow = ISO8601DateFormatter().date(from: "2026-11-19T02:30:00Z")
+        }
         Task {
             // Live Activity 용 초상화를 App Group 에 넣어 둔다 (서명 없이 실행되면 App Group 이 없어 건너뜀)
             if let store {
@@ -248,6 +416,11 @@ final class AppState: ObservableObject {
                 }
             }
             if env["BRAWL_DEMO_LIVE"] == "1" { liveActivity.start(with: ActivityDisplayState(manual: rec)) }
+            // ◀ ▶ 맵 전환을 실제 엔진으로 확인할 수 있게 데이터를 받아 둔다 (화면에 보이는 값은 바꾸지 않음)
+            if let service, env["BRAWL_DEMO_FIXTURES"] != nil {
+                await service.engine.setOwned(ownedIDs)
+                _ = try? await service.refresh()
+            }
         }
         return true
     }

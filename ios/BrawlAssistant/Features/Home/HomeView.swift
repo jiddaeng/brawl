@@ -6,6 +6,8 @@ struct HomeView: View {
     @StateObject private var picker = BroadcastPickerHolder()
     @ObservedObject private var activity: LiveActivityController
     @State private var showMapPicker = false
+    @State private var showPlayer = false
+    @AppStorage(AppState.ownedOnlyKey) private var ownedOnly = true
     @AppStorage("onboarding.done") private var onboardingDone = false
     @AppStorage(AppState.usePicksKey) private var usePicks = false
     @AppStorage("liveActivity.alertOnChange") private var alertOnChange = false
@@ -18,7 +20,16 @@ struct HomeView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 24) {
                 header(p)
-                StatusRow(presentation: p)
+                if app.gameDataAvailable || app.gameData.player != nil {
+                    PlayerCard { showPlayer = true }
+                }
+                let maps = app.currentMaps
+                if !maps.isEmpty {
+                    CurrentMapsStrip(maps: maps, selected: p.recommendation?.mapID, recent: app.recentMap?.map.id)
+                }
+                if p.broadcastActive || p.isError || p.recommendation == nil {
+                    StatusRow(presentation: p)
+                }
                 if let rec = p.recommendation {
                     RecommendationView(recommendation: rec, result: vm.result, store: app.store)
                 } else if !onboardingDone || app.catalog == nil {
@@ -43,6 +54,7 @@ struct HomeView: View {
             BroadcastPickerHost(holder: picker).frame(width: 1, height: 1).opacity(0.01).allowsHitTesting(false)
         }
         .sheet(isPresented: $showMapPicker) { MapPickerView(maps: app.catalog?.maps ?? []) { app.chooseMapManually($0) } }
+        .sheet(isPresented: $showPlayer) { PlayerLinkSheet().environmentObject(app) }
         .alert("알림", isPresented: Binding(get: { app.alert != nil }, set: { if !$0 { app.alert = nil } })) {
             Button("확인", role: .cancel) {}
         } message: { Text(app.alert ?? "") }
@@ -71,12 +83,13 @@ struct HomeView: View {
         VStack(spacing: 0) {
             Rectangle().fill(Theme.line).frame(height: 1)
             Group {
+                // 주 동작: Dynamic Island 켜기. 게임 중에는 ◀ ▶ 로 맵을 바꾼다 (화면 녹화 불필요)
                 if p.broadcastActive || app.session.status == .waiting {
-                    PrimaryButton(title: "화면 분석 종료", systemImage: "stop.fill", destructive: true) { app.stopBroadcast() }
+                    PrimaryButton(title: "화면 인식 종료", systemImage: "stop.fill", destructive: true) { app.stopBroadcast() }
+                } else if activity.isRunning {
+                    PrimaryButton(title: "Dynamic Island 끄기", systemImage: "xmark", destructive: true) { app.toggleLiveActivity() }
                 } else {
-                    PrimaryButton(title: "화면 분석 시작", systemImage: "record.circle") {
-                        if app.prepareBroadcast() { picker.present() }
-                    }
+                    PrimaryButton(title: "Dynamic Island 켜기", systemImage: "capsule.fill") { app.toggleLiveActivity() }
                 }
             }
             .padding(.horizontal, 20)
@@ -97,8 +110,14 @@ struct HomeView: View {
                 ActionRow(title: "방송 시트 열기", systemImage: "dot.radiowaves.left.and.right") { picker.present() }
                 RowDivider()
             }
-            ActionRow(title: "맵 직접 선택", systemImage: "map") { showMapPicker = true }
+            ActionRow(title: "맵 직접 선택 (전체 맵 풀)", systemImage: "map") { showMapPicker = true }
             RowDivider()
+            if !p.broadcastActive {
+                ActionRow(title: "화면 인식으로 맵 찾기 (선택)", systemImage: "record.circle") {
+                    if app.prepareBroadcast() { picker.present() }
+                }
+                RowDivider()
+            }
             ActionRow(title: "데이터 새로고침", systemImage: "arrow.triangle.2.circlepath") { Task { await app.refresh() } }
         }
         .draftCard()
@@ -108,21 +127,24 @@ struct HomeView: View {
         VStack(alignment: .leading, spacing: 8) {
             SectionLabel("설정")
             VStack(spacing: 0) {
-                Toggle("Live Activity (Dynamic Island)", isOn: Binding(get: { activity.isRunning }, set: { if $0 != activity.isRunning { app.toggleLiveActivity() } }))
-                    .padding(.horizontal, 16).padding(.vertical, 12)
-                RowDivider(inset: 16)
+                if app.gameData.player != nil {
+                    Toggle("보유 브롤러만 추천", isOn: $ownedOnly)
+                        .onChange(of: ownedOnly) { _, _ in app.ownedSettingsChanged() }
+                        .padding(.horizontal, 16).padding(.vertical, 12)
+                    RowDivider(inset: 16)
+                }
                 Toggle("추천이 바뀌면 Dynamic Island 펼치기", isOn: $alertOnChange)
                     .onChange(of: alertOnChange) { _, v in activity.alertOnChange = v }
                     .padding(.horizontal, 16).padding(.vertical, 12)
                 RowDivider(inset: 16)
-                Toggle("드래프트 픽 글자 인식 반영 (실험)", isOn: $usePicks)
+                Toggle("화면 인식: 드래프트 픽 반영 (실험)", isOn: $usePicks)
                     .padding(.horizontal, 16).padding(.vertical, 12)
             }
             .font(.body)
             .foregroundStyle(Theme.text)
             .tint(Theme.accent)
             .draftCard()
-            Text("Live Activity 를 켜면 이 앱이 화면에 없을 때 Dynamic Island 와 잠금 화면에 BEST TEAM 이 표시됩니다")
+            Text("Dynamic Island 를 켜면 게임 중에도 추천이 보이고, ◀ ▶ 로 지금 열린 맵을 바꿀 수 있습니다. 화면 녹화는 필요 없습니다")
                 .font(.footnote).foregroundStyle(Theme.secondaryText).padding(.horizontal, 4)
         }
     }
@@ -132,10 +154,11 @@ struct HomeView: View {
             Text(vm.dataLine)
             if let s = vm.dataStatusLine { Text(s) }
             if let s = vm.precomputeLine { Text(s) }
+            if let s = vm.gameDataLine { Text(s) }
             if let s = vm.extensionActivityLine { Text(s) }
             if activity.availability == .disabledByUser { Text("Live Activity 가 꺼져 있습니다. 설정 > Brawl Assistant > 실시간 현황에서 켤 수 있습니다").foregroundStyle(Theme.error) }
             if let e = activity.lastError { Text(e).foregroundStyle(Theme.error) }
-            Text("비공식 팬메이드 도구. 데이터 출처 Brawlify, BrawlTime")
+            Text("비공식 팬메이드 도구. 데이터 출처 Supercell 공식 API, Brawlify, BrawlTime. 이 앱은 Supercell 과 관련이 없습니다")
         }
         .font(.caption)
         .foregroundStyle(Theme.secondaryText)
@@ -171,10 +194,10 @@ struct OnboardingView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("사용 방법").font(Theme.ko(20)).foregroundStyle(Theme.accent)
-            step(1, "‘화면 분석 시작’ → 방송 시트에서 Brawl Assistant 선택 → ‘방송 시작’")
-            step(2, "브롤스타즈를 실행하고 로비의 이벤트·드래프트·로딩 화면처럼 맵 이름이 보이는 화면을 띄웁니다")
-            step(3, "맵이 인식되면 Dynamic Island 와 이 화면에 BEST TEAM 이 표시됩니다")
-            Text("화면은 기기 안에서만 분석되고 저장하거나 전송하지 않습니다. 방송은 이 앱, 제어 센터, 상단 상태 표시줄에서 언제든 끌 수 있습니다.")
+            step(1, "플레이어 태그를 연결하면 내가 가진 브롤러로만 추천합니다")
+            step(2, "‘지금 열린 맵’에서 들어갈 맵을 누릅니다. 최근 경기 맵은 초록색으로 표시됩니다")
+            step(3, "‘Dynamic Island 켜기’를 누르고 게임으로 갑니다. 게임 중에는 Dynamic Island 를 길게 눌러 ◀ ▶ 로 맵을 바꿉니다")
+            Text("화면 녹화는 필요 없습니다. 맵을 자동으로 찾고 싶을 때만 아래의 ‘화면 인식’을 쓰세요 (화면은 기기 안에서만 분석).")
                 .font(.footnote).foregroundStyle(Theme.secondaryText)
             Button("확인", action: onDone).font(Theme.ko(16)).foregroundStyle(Theme.accent)
                 .frame(minHeight: 44)

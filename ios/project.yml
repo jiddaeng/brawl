@@ -19,7 +19,8 @@ settings:
     SWIFT_VERSION: "5.0"
     TARGETED_DEVICE_FAMILY: "1"          # iPhone 전용
     CODE_SIGN_STYLE: Automatic
-    # 게임 중(앱 백그라운드) Live Activity 갱신용 푸시 중계 서버 (server/live-activity-relay). 비우면 게임 중 갱신 없음
+    # 서버 (server/live-activity-relay): 공식 Brawl Stars API 중계(지금 열린 맵·보유 브롤러) + 화면 인식 사용 시 Live Activity 푸시.
+    # 비우면 두 기능 모두 꺼진다 (맵 직접 선택과 Dynamic Island ◀ ▶ 맵 전환은 서버 없이 동작)
     PUSH_RELAY_URL: ""
   configs:
     Debug:
@@ -42,6 +43,7 @@ targets:
       - path: BrawlAssistant/Shared
       - path: BrawlAssistant/LiveActivity/BrawlActivityAttributes.swift
       - path: BrawlAssistant/LiveActivity/LiveActivityController.swift
+      - path: BrawlAssistant/LiveActivity/ChangeMapIntent.swift
       # 기존 Draft Room 추천 엔진 (웹과 같은 파일을 그대로 번들에 넣는다)
       - path: ../engine/draft-engine.js
         buildPhase: resources
@@ -57,6 +59,7 @@ targets:
       - target: BrawlBroadcastExtension
       - sdk: ReplayKit.framework
       - sdk: JavaScriptCore.framework
+      - sdk: AppIntents.framework
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: $(APP_BUNDLE_ID)
@@ -92,6 +95,7 @@ targets:
     sources:
       - path: BrawlAssistant/LiveActivity/Widget
       - path: BrawlAssistant/LiveActivity/BrawlActivityAttributes.swift
+      - path: BrawlAssistant/LiveActivity/ChangeMapIntent.swift
       - path: BrawlAssistant/Shared
       - path: BrawlAssistant/Design
       - path: BrawlAssistant/Resources/Fonts
@@ -101,9 +105,12 @@ targets:
         product: BrawlCore
       - sdk: WidgetKit.framework
       - sdk: SwiftUI.framework
+      - sdk: AppIntents.framework
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: $(APP_BUNDLE_ID).widget
+        # ChangeMapIntent 의 실제 동작(앱 상태)은 앱에서만 컴파일
+        SWIFT_ACTIVE_COMPILATION_CONDITIONS: $(inherited) WIDGET_EXTENSION
     info:
       path: BrawlAssistant/Resources/Widget-Info.plist
       properties:
