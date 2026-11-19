@@ -18,9 +18,9 @@ struct IslandHeader: View {
                 .font(Theme.koFixed(17)).foregroundStyle(Theme.text)
                 .lineLimit(1).minimumScaleFactor(0.8)
             HStack(spacing: 5) {
-                Text("DRAFT ROOM").font(Theme.displayFixed(11)).foregroundStyle(Theme.goldGradient)
+                Text("DRAFT ROOM").font(Theme.displayFixed(11)).foregroundStyle(Theme.goldGradient).fixedSize()
                 if let mode = state.modeName {
-                    Text(mode).font(Theme.koFixed(11)).foregroundStyle(Theme.secondaryText).lineLimit(1)
+                    Text(mode).font(Theme.koFixed(11)).foregroundStyle(Theme.secondaryText).lineLimit(1).minimumScaleFactor(0.8)
                 }
             }
         }
@@ -48,7 +48,7 @@ struct IslandRanking: View {
     var body: some View {
         Group {
             if state.isReady {
-                RankingList(teams: state.rankedTeams, portrait: 21, rowSpacing: 3)
+                RankingList(teams: state.rankedTeams, portrait: 20, rowSpacing: 3)
             } else {
                 VStack(alignment: .leading, spacing: 4) {
                     Text(state.status.title).font(Theme.koFixed(16))
@@ -156,7 +156,7 @@ struct RankingRow: View {
             Spacer(minLength: 4)
             WinRateText(value: team.winRate, size: 17, highlight: best)
         }
-        .padding(.horizontal, 7).padding(.vertical, 2)
+        .padding(.horizontal, 7).padding(.vertical, 1.5)
         .background(Theme.deep.opacity(0.9), in: shape)
         .overlay(shape.stroke(best ? Theme.accent.opacity(0.9) : Theme.line, lineWidth: 1))
     }
