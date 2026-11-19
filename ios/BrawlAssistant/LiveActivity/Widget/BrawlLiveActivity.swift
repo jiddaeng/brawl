@@ -16,7 +16,7 @@ struct BrawlLiveActivity: Widget {
             let s = context.state
             return DynamicIsland {
                 DynamicIslandExpandedRegion(.leading) {
-                    IslandHeader(state: s).dynamicIsland(verticalPlacement: .belowIfTooWide)
+                    IslandHeader(state: s)
                 }
                 DynamicIslandExpandedRegion(.trailing) {
                     IslandColumnLabel(state: s)

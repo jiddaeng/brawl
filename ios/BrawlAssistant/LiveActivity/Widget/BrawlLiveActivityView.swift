@@ -25,6 +25,8 @@ struct IslandHeader: View {
             }
         }
         .padding(.leading, 8)
+        // 맵 이름 길이에 따라 위치가 바뀌지 않게 높이를 고정 (짧은 이름에서 아래로 밀려 3번째 줄이 잘렸음)
+        .frame(height: 34, alignment: .top)
     }
 }
 
@@ -33,7 +35,7 @@ struct IslandColumnLabel: View {
     let state: ActivityDisplayState
     var body: some View {
         if state.isReady {
-            MapStepButtons(size: 30).padding(.trailing, 6).padding(.top, 2)
+            MapStepButtons(size: 30).padding(.trailing, 6).frame(height: 34, alignment: .top)
         } else {
             StatusGlyph(status: state.status).font(.system(size: 18, weight: .semibold)).padding(.trailing, 8)
         }
