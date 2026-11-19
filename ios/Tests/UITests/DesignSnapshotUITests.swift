@@ -33,18 +33,20 @@ final class DesignSnapshotUITests: XCTestCase {
         app.swipeUp(); app.swipeUp(); sleep(1)
         shot("03-home-bottom")
 
-        // 홈 화면: Dynamic Island 축소
+        // 잠금 화면 카드 (처음에는 iOS 가 Live Activity 허용을 묻는다 → 허용)
+        _ = XCUIDevice.shared.perform(NSSelectorFromString("pressLockButton")); sleep(2)
+        XCUIDevice.shared.press(.home); sleep(2)
+        let springboard = XCUIApplication(bundleIdentifier: "com.apple.springboard")
+        let allow = springboard.buttons["Allow"].exists ? springboard.buttons["Allow"] : springboard.buttons["허용"]
+        if allow.waitForExistence(timeout: 3) { allow.tap(); sleep(2) }
+        shot("06-lock-screen")
+
+        // 잠금 해제 → 홈 화면: Dynamic Island 축소
+        XCUIDevice.shared.press(.home); sleep(2)
         XCUIDevice.shared.press(.home); sleep(3)
         shot("04-island-compact")
         // 섬을 길게 눌러 펼침
-        let springboard = XCUIApplication(bundleIdentifier: "com.apple.springboard")
         springboard.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.03)).press(forDuration: 1.5); sleep(2)
         shot("05-island-expanded")
-        XCUIDevice.shared.press(.home); sleep(1)
-
-        // 잠금 화면 카드
-        _ = XCUIDevice.shared.perform(NSSelectorFromString("pressLockButton")); sleep(2)
-        XCUIDevice.shared.press(.home); sleep(2)
-        shot("06-lock-screen")
     }
 }

@@ -60,7 +60,7 @@ struct IslandTeam: View {
                             Text("추정 승률 \(wr)%").font(.system(size: 10, weight: .medium)).monospacedDigit().foregroundStyle(Theme.secondaryText)
                         }
                     }
-                    TeamRow(members: state.members, portrait: state.members.count > 3 ? 30 : 38, nameSize: 11)
+                    TeamChips(members: state.members)
                 }
             } else {
                 HStack(spacing: 8) {
@@ -72,9 +72,31 @@ struct IslandTeam: View {
                 }
             }
         }
-        .padding(.horizontal, 4)
-        .padding(.top, 4)
-        .padding(.bottom, 6)
+        .padding(.horizontal, 6)
+        .padding(.top, 2)
+        .padding(.bottom, 4)
+    }
+}
+
+/// 펼침용: [초상화 이름] 칩을 가로로 (펼침 높이 한도 안에 들어가도록 한 줄)
+struct TeamChips: View {
+    let members: [ActivityDisplayState.Member]
+    var body: some View {
+        let small = members.count > 3
+        HStack(spacing: small ? 4 : 8) {
+            ForEach(members, id: \.id) { m in
+                HStack(spacing: 6) {
+                    MiniPortrait(id: m.id, size: small ? 22 : 28, circle: true)
+                    if !small || members.count <= 4 {
+                        Text(m.name).font(.system(size: small ? 10 : 13, weight: .semibold)).foregroundStyle(Theme.text)
+                            .lineLimit(1).minimumScaleFactor(0.6)
+                    }
+                }
+                .padding(.leading, 3).padding(.trailing, small ? 4 : 10).padding(.vertical, 3)
+                .background(Theme.secondaryBackground, in: Capsule())
+                .frame(maxWidth: .infinity, alignment: .leading)
+            }
+        }
     }
 }
 
@@ -110,7 +132,7 @@ struct BrawlLockScreenView: View {
                         }
                     }
                 }
-                TeamRow(members: state.members, portrait: state.members.count > 3 ? 28 : 34, nameSize: 11)
+                TeamRow(members: state.members, portrait: state.members.count > 3 ? 30 : 38, nameSize: 12)
             } else {
                 VStack(alignment: .leading, spacing: 3) {
                     if let map = state.mapName {

@@ -36,6 +36,8 @@ struct HomeView: View {
         }
         .scrollIndicators(.hidden)
         .background(Theme.background.ignoresSafeArea())
+        // 스크롤한 내용이 상태 표시줄(시계) 아래로 비치지 않게 위쪽 안전 영역을 덮는다
+        .overlay(alignment: .top) { Theme.background.frame(height: 0).ignoresSafeArea(edges: .top) }
         // 주 동작은 화면 아래에 고정 (안전 영역 위, 위쪽 구분선)
         .safeAreaInset(edge: .bottom, spacing: 0) { bottomBar(p) }
         .overlay(alignment: .bottomTrailing) {
@@ -89,9 +91,6 @@ struct HomeView: View {
             }
             ActionRow(title: "맵 직접 선택", systemImage: "map") { showMapPicker = true }
             RowDivider()
-            ActionRow(title: activity.isRunning ? "Live Activity 끄기" : "Live Activity 켜기",
-                      systemImage: "platter.filled.top.iphone", detail: activity.isRunning ? "켜짐" : nil) { app.toggleLiveActivity() }
-            RowDivider()
             ActionRow(title: "데이터 새로고침", systemImage: "arrow.triangle.2.circlepath") { Task { await app.refresh() } }
         }
         .background(Theme.card, in: RoundedRectangle(cornerRadius: Theme.corner, style: .continuous))
@@ -101,10 +100,13 @@ struct HomeView: View {
         VStack(alignment: .leading, spacing: 8) {
             SectionLabel("설정")
             VStack(spacing: 0) {
+                Toggle("Live Activity (Dynamic Island)", isOn: Binding(get: { activity.isRunning }, set: { if $0 != activity.isRunning { app.toggleLiveActivity() } }))
+                    .padding(.horizontal, 16).padding(.vertical, 12)
+                RowDivider(inset: 16)
                 Toggle("추천이 바뀌면 Dynamic Island 펼치기", isOn: $alertOnChange)
                     .onChange(of: alertOnChange) { _, v in activity.alertOnChange = v }
                     .padding(.horizontal, 16).padding(.vertical, 12)
-                RowDivider()
+                RowDivider(inset: 16)
                 Toggle("드래프트 픽 글자 인식 반영 (실험)", isOn: $usePicks)
                     .padding(.horizontal, 16).padding(.vertical, 12)
             }
@@ -210,7 +212,8 @@ struct ActionRow: View {
 }
 
 struct RowDivider: View {
-    var body: some View { Rectangle().fill(Theme.divider).frame(height: 0.5).padding(.leading, 50) }
+    var inset: CGFloat = 50
+    var body: some View { Rectangle().fill(Theme.divider).frame(height: 0.5).padding(.leading, inset) }
 }
 
 struct SectionLabel: View {
