@@ -92,6 +92,32 @@ final class SessionLogicTests: XCTestCase {
         XCTAssertLessThan(try JSONEncoder().encode(ready).count, 4096, "ActivityKit 4KB 제한")
     }
 
+    func testActivityStateCarriesTopThreeTeamsFromEngine() throws {
+        let r = Fixtures.result("result-bounty")
+        var red = reducer()
+        red.reduce(.started(t0))
+        red.reduce(.recognition(.recognized(bounty, confidence: 0.9), frame: nil, at: t0))
+        let st = ActivityDisplayState(session: red.session)
+        XCTAssertEqual(st.rankedTeams.count, 3)
+        for (i, t) in st.rankedTeams.enumerated() {
+            XCTAssertEqual(t.rank, r.teams[i].rank)
+            XCTAssertEqual(t.winRate, r.teams[i].estimatedWinRate, "추정 승률은 엔진 값 그대로")
+            XCTAssertEqual(t.score, r.teams[i].score)
+            XCTAssertEqual(t.members.map(\.name), r.teams[i].members.map(\.ko))
+        }
+        XCTAssertEqual(st.rankedTeams[0].members, st.members, "1위는 BEST TEAM 과 같다")
+        XCTAssertLessThan(try JSONEncoder().encode(st).count, 3500, "APNs 4KB 안 (aps 머리 포함 여유)")
+        // 5인 모드도 4KB 안
+        let five = ActivityDisplayState(manual: Recommendation(result: Fixtures.result("result-5v5"))!)
+        XCTAssertEqual(five.rankedTeams.first?.members.count, 5)
+        XCTAssertLessThan(try JSONEncoder().encode(five).count, 3500)
+        // 예전 형식(teams 없음)도 읽힌다
+        var old = try JSONSerialization.jsonObject(with: JSONEncoder().encode(st)) as! [String: Any]
+        old.removeValue(forKey: "teams")
+        let decoded = try JSONDecoder().decode(ActivityDisplayState.self, from: JSONSerialization.data(withJSONObject: old))
+        XCTAssertEqual(decoded.rankedTeams.count, 1)
+    }
+
     func testHomePresentation() {
         let rec = Recommendation(result: Fixtures.result("result-bounty"))!
         var r = reducer()

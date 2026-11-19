@@ -4,7 +4,7 @@ import http2 from 'node:http2';
 import crypto from 'node:crypto';
 
 /** ActivityKit ContentState(ActivityDisplayState) 의 키. iOS RelayRequest.contentStateKeys 와 같아야 한다 */
-export const CONTENT_STATE_KEYS = ['status', 'mapName', 'modeName', 'members', 'score', 'winRate', 'message', 'updatedAt'];
+export const CONTENT_STATE_KEYS = ['status', 'mapName', 'modeName', 'members', 'score', 'winRate', 'message', 'updatedAt', 'teams'];
 const STATUSES = ['idle', 'waiting', 'broadcasting', 'mapRecognized', 'computing', 'ready', 'mapFailed', 'modeFailed', 'noRecommendation', 'ended'];
 
 export class RelayError extends Error {
@@ -32,11 +32,25 @@ export function validateRequest(body) {
   if (cs.winRate !== undefined && !(isStr(cs.winRate, 8) && /^[0-9.]+$/.test(cs.winRate))) throw new RelayError(400, 'contentState.winRate invalid');
   if (cs.score !== undefined && !(Number.isInteger(cs.score) && cs.score >= 0 && cs.score <= 100)) throw new RelayError(400, 'contentState.score invalid');
   if (!Array.isArray(cs.members) || cs.members.length > 5) throw new RelayError(400, 'contentState.members must be an array of up to 5');
-  for (const m of cs.members) {
-    if (!m || typeof m !== 'object' || Object.keys(m).some(k => k !== 'id' && k !== 'name') || !Number.isInteger(m.id) || !isStr(m.name, 40))
-      throw new RelayError(400, 'contentState.members entries must be {id, name}');
+  const checkMembers = (list, where) => {
+    if (!Array.isArray(list) || list.length > 5) throw new RelayError(400, `${where} must be an array of up to 5`);
+    for (const m of list) {
+      if (!m || typeof m !== 'object' || Object.keys(m).some(k => k !== 'id' && k !== 'name') || !Number.isInteger(m.id) || !isStr(m.name, 40))
+        throw new RelayError(400, `${where} entries must be {id, name}`);
+    }
+  };
+  checkMembers(cs.members, 'contentState.members');
+  // 순위 리스트 (Dynamic Island·잠금 화면): 최대 3개, 각 {rank, members, winRate, score}
+  const teams = cs.teams ?? [];
+  if (!Array.isArray(teams) || teams.length > 3) throw new RelayError(400, 'contentState.teams must be an array of up to 3');
+  for (const t of teams) {
+    if (!t || typeof t !== 'object' || Object.keys(t).some(k => !['rank', 'members', 'winRate', 'score'].includes(k))) throw new RelayError(400, 'contentState.teams entries must be {rank, members, winRate, score}');
+    if (!Number.isInteger(t.rank) || t.rank < 1 || t.rank > 10) throw new RelayError(400, 'contentState.teams.rank invalid');
+    if (!(isStr(t.winRate, 8) && /^[0-9.]+$/.test(t.winRate))) throw new RelayError(400, 'contentState.teams.winRate invalid');
+    if (!(Number.isInteger(t.score) && t.score >= 0 && t.score <= 100)) throw new RelayError(400, 'contentState.teams.score invalid');
+    checkMembers(t.members, 'contentState.teams.members');
   }
-  for (const v of [cs.mapName, cs.modeName, cs.message, ...cs.members.map(m => m.name)])
+  for (const v of [cs.mapName, cs.modeName, cs.message, ...cs.members.map(m => m.name), ...teams.flatMap(t => t.members.map(m => m.name))])
     if (typeof v === 'string' && /https?:|data:/i.test(v)) throw new RelayError(400, 'URLs are not allowed');
   if (alert !== undefined && alert !== null) {
     if (typeof alert !== 'object' || !isStr(alert.title, 60) || !isStr(alert.body, 160) || Object.keys(alert).some(k => k !== 'title' && k !== 'body'))

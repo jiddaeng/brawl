@@ -13,7 +13,7 @@ const iosRequest = () => ({
 });
 
 test('content-state 키 목록이 iOS 와 같다', () => {
-  assert.deepEqual([...CONTENT_STATE_KEYS].sort(), ['mapName', 'members', 'message', 'modeName', 'score', 'status', 'updatedAt', 'winRate']);
+  assert.deepEqual([...CONTENT_STATE_KEYS].sort(), ['mapName', 'members', 'message', 'modeName', 'score', 'status', 'teams', 'updatedAt', 'winRate']);
 });
 
 test('정상 요청 통과', () => { assert.equal(validateRequest(iosRequest()).token.length, 64); });
@@ -25,6 +25,9 @@ test('최소 정보만 허용: 모르는 키·URL·큰 값 거부', () => {
     r => { r.contentState.members = Array(6).fill({ id: 1, name: 'a' }); }, r => { r.token = 'not-hex'; },
     r => { r.environment = 'staging'; }, r => { r.contentState.score = 101; }, r => { r.contentState.updatedAt = '2026'; },
     r => { r.contentState.status = 'hacked'; }, r => { r.alert = { title: 'x', body: 'y', sound: 'z' }; },
+    r => { r.contentState.teams = Array(4).fill({ rank: 1, members: [], winRate: '50.0', score: 50 }); },
+    r => { r.contentState.teams = [{ rank: 1, members: [{ id: 1, name: 'https://x' }], winRate: '50.0', score: 50 }]; },
+    r => { r.contentState.teams = [{ rank: 1, members: [], winRate: '50.0', score: 50, img: 'x' }]; },
   ];
   for (const f of bad) { const r = iosRequest(); f(r); assert.throws(() => validateRequest(r), /./); }
 });
@@ -110,6 +113,7 @@ test('iOS(BrawlCore RelayRequest)가 실제로 만든 요청을 받아들인다'
   const r = validateRequest(body);
   assert.equal(r.event, 'update');
   assert.ok(r.alert, '맵 변경 알림 포함');
+  assert.equal(r.contentState.teams.length, 3, '상위 3개 조합 포함');
   const p = JSON.parse(buildPayload(r, 1_800_000_000));
   assert.deepEqual(p.aps['content-state'], body.contentState, 'content-state 는 바꾸지 않고 전달');
 });

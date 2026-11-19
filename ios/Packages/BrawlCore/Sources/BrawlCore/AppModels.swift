@@ -16,6 +16,8 @@ public struct Recommendation: Codable, Hashable, Sendable {
     public var archetype: String
     public var statsInfo: StatsInfo?
     public var updatedAt: Date
+    /// Dynamic Island·잠금 화면 리스트용 상위 조합 (엔진 순위 그대로, 최대 3개). 예전에 저장된 세션에는 없을 수 있다
+    public var topTeams: [RankedTeam]?
 
     /// 엔진 결과의 rank 번째 조합 (기본 1위)
     public init?(result: EngineResult, rank: Int = 1, at date: Date = Date()) {
@@ -33,6 +35,7 @@ public struct Recommendation: Codable, Hashable, Sendable {
         archetype = t.archetype
         statsInfo = result.stats
         updatedAt = date
+        topTeams = result.teams.prefix(RankedTeam.limit).map(RankedTeam.init(team:))
     }
 
     /// Live Activity 갱신 여부 판단용: 사용자에게 보이는 추천 내용이 같으면 같은 키

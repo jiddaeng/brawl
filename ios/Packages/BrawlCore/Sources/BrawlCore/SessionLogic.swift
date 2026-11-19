@@ -78,6 +78,26 @@ public struct SessionReducer {
     }
 }
 
+/// 순위 리스트 한 줄: 조합(캐릭터)과 추정 승률. 값은 엔진 결과 그대로
+public struct RankedTeam: Codable, Hashable, Sendable {
+    /// Live Activity 에 넣는 최대 조합 수 (펼침·잠금 화면 높이 160pt, 페이로드 4KB 안)
+    public static let limit = 3
+    public var rank: Int
+    public var members: [ActivityDisplayState.Member]
+    /// 웹과 같은 소수 첫째 자리 문자열
+    public var winRate: String
+    public var score: Int
+
+    public init(rank: Int, members: [ActivityDisplayState.Member], winRate: String, score: Int) {
+        self.rank = rank; self.members = members; self.winRate = winRate; self.score = score
+    }
+
+    public init(team t: TeamResult) {
+        self.init(rank: t.rank, members: t.members.prefix(5).map { ActivityDisplayState.Member(id: $0.id, name: $0.ko) },
+                  winRate: t.estimatedWinRate, score: t.score)
+    }
+}
+
 /// Dynamic Island / 잠금 화면에 보여 줄 값 (ActivityKit ContentState 로 그대로 쓴다. 4KB 제한 안에서 작게 유지)
 public struct ActivityDisplayState: Codable, Hashable, Sendable {
     public struct Member: Codable, Hashable, Sendable {
@@ -93,10 +113,19 @@ public struct ActivityDisplayState: Codable, Hashable, Sendable {
     public var winRate: String?
     public var message: String?
     public var updatedAt: Date
+    /// 순위 리스트 (최대 3개). 1위는 members·score·winRate 와 같다
+    public var teams: [RankedTeam]?
 
-    public init(status: AnalysisStatus, mapName: String? = nil, modeName: String? = nil, members: [Member] = [], score: Int? = nil, winRate: String? = nil, message: String? = nil, updatedAt: Date) {
+    public init(status: AnalysisStatus, mapName: String? = nil, modeName: String? = nil, members: [Member] = [], score: Int? = nil, winRate: String? = nil, message: String? = nil, updatedAt: Date, teams: [RankedTeam]? = nil) {
         self.status = status; self.mapName = mapName; self.modeName = modeName; self.members = members
-        self.score = score; self.winRate = winRate; self.message = message; self.updatedAt = updatedAt
+        self.score = score; self.winRate = winRate; self.message = message; self.updatedAt = updatedAt; self.teams = teams
+    }
+
+    /// 리스트로 보여 줄 조합: 상위 조합이 없으면 1위 하나
+    public var rankedTeams: [RankedTeam] {
+        if let t = teams, !t.isEmpty { return Array(t.prefix(RankedTeam.limit)) }
+        guard !members.isEmpty, let wr = winRate, let s = score else { return [] }
+        return [RankedTeam(rank: 1, members: members, winRate: wr, score: s)]
     }
 
     /// 세션 → 표시 값. 추천 완료(.ready) 상태에서만 추천 브롤러·점수를 넣는다
@@ -108,6 +137,7 @@ public struct ActivityDisplayState: Codable, Hashable, Sendable {
             mapName = rec.mapName; modeName = rec.gameMode
             members = rec.brawlers.prefix(5).map { Member(id: $0.id, name: $0.ko) }
             score = rec.score; winRate = rec.estimatedWinRate
+            teams = rec.topTeams
         } else if let r = session.recognition, let m = r.recognizedMode {
             modeName = ModeNames.korean[m] ?? m
         }
@@ -115,12 +145,13 @@ public struct ActivityDisplayState: Codable, Hashable, Sendable {
 
     /// 수동으로 고른 맵의 추천
     public init(manual rec: Recommendation) {
-        self.init(status: .ready, mapName: rec.mapName, modeName: rec.gameMode, members: rec.brawlers.prefix(5).map { Member(id: $0.id, name: $0.ko) }, score: rec.score, winRate: rec.estimatedWinRate, updatedAt: rec.updatedAt)
+        self.init(status: .ready, mapName: rec.mapName, modeName: rec.gameMode, members: rec.brawlers.prefix(5).map { Member(id: $0.id, name: $0.ko) }, score: rec.score, winRate: rec.estimatedWinRate, updatedAt: rec.updatedAt, teams: rec.topTeams)
     }
 
     /// 갱신 판단용 키 (시각 제외, 보이는 내용만)
     public var contentKey: String {
-        [status.rawValue, mapName ?? "", modeName ?? "", members.map { String($0.id) }.joined(separator: ","), score.map(String.init) ?? "", winRate ?? "", message ?? ""].joined(separator: "|")
+        [status.rawValue, mapName ?? "", modeName ?? "", members.map { String($0.id) }.joined(separator: ","), score.map(String.init) ?? "", winRate ?? "", message ?? "",
+         (teams ?? []).map { "\($0.members.map { String($0.id) }.joined(separator: ",")):\($0.winRate)" }.joined(separator: ";")].joined(separator: "|")
     }
 }
 

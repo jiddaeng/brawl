@@ -239,7 +239,9 @@ final class AppState: ObservableObject {
         Task {
             // Live Activity 용 초상화를 App Group 에 넣어 둔다 (서명 없이 실행되면 App Group 이 없어 건너뜀)
             if let store {
-                for b in rec.brawlers {
+                let members = r.teams.prefix(RankedTeam.limit).flatMap(\.members)
+                var seen = Set<Int>()
+                for b in members where seen.insert(b.id).inserted {
                     guard let s = b.img, let u = URL(string: s), let (d, _) = try? await URLSession.shared.data(from: u),
                           let png = PixelDecoder.thumbnailPNG(d, side: 96) else { continue }
                     try? png.write(to: store.portraitURL(brawlerID: b.id), options: .atomic)

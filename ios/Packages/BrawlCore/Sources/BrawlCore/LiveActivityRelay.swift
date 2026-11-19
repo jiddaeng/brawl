@@ -50,7 +50,7 @@ public struct RelayRequest: Codable, Hashable, Sendable {
     public func body() throws -> Data { try JSONEncoder().encode(self) }
 
     /// 표시 값에 들어가는 키 (서버 검증 목록과 같아야 한다: server/live-activity-relay/relay.mjs CONTENT_STATE_KEYS)
-    public static let contentStateKeys: Set<String> = ["status", "mapName", "modeName", "members", "score", "winRate", "message", "updatedAt"]
+    public static let contentStateKeys: Set<String> = ["status", "mapName", "modeName", "members", "score", "winRate", "message", "updatedAt", "teams"]
 }
 
 public enum RelayError: Error, LocalizedError, Equatable {
