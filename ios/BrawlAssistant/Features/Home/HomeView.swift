@@ -35,9 +35,9 @@ struct HomeView: View {
             .padding(.bottom, 24)
         }
         .scrollIndicators(.hidden)
+        // 스크롤한 내용이 상태 표시줄(시계) 아래로 비치지 않게 스크롤 영역(안전 영역 안)으로 자른다
+        .clipped()
         .background(Theme.background.ignoresSafeArea())
-        // 스크롤한 내용이 상태 표시줄(시계) 아래로 비치지 않게 위쪽 안전 영역을 덮는다
-        .overlay(alignment: .top) { Theme.background.frame(height: 0).ignoresSafeArea(edges: .top) }
         // 주 동작은 화면 아래에 고정 (안전 영역 위, 위쪽 구분선)
         .safeAreaInset(edge: .bottom, spacing: 0) { bottomBar(p) }
         .overlay(alignment: .bottomTrailing) {
