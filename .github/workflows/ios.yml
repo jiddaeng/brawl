@@ -106,3 +106,5 @@ jobs:
           path: |
             snapshots
             ios/ui-test.log
+      - name: UI 테스트 결과 확인 (실패를 성공으로 가리지 않기)
+        run: grep -q "TEST SUCCEEDED" ios/ui-test.log
